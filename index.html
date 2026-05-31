@@ -291,7 +291,7 @@ function Personnes({data,save,field,title,extra=[],egNom}){
     {modal&&<Modl title={edit?`Modifier — ${edit.prenom||""} ${edit.nom||""}`:`Nouveau — ${title}`} onClose={()=>setModal(false)} wide>
       <G2><Inp label="Nom" value={form.nom} name="nom" onChange={f}/><Inp label="Prénom" value={form.prenom} name="prenom" onChange={f}/></G2>
       <Sel label="Sexe" value={form.sexe} name="sexe" onChange={f} options={["Homme","Femme"]}/>
-      {extra.map(ef=>ef.type==="select"?<Sel key={ef.key} label={ef.label} value={form[ef.key]} onChange={f(ef.key)} options={ef.opts}/>:<Inp key={ef.key} label={ef.label} value={form[ef.key]} onChange={f(ef.key)} type={ef.type||"text"}/>)}
+      {extra.map(ef=>ef.type==="select"?<Sel key={ef.key} label={ef.label} value={form[ef.key]} name={ef.key} onChange={f} options={ef.opts}/>:<Inp key={ef.key} label={ef.label} value={form[ef.key]} name={ef.key} onChange={f} type={ef.type||"text"}/>)}
       <ChampsC form={form} set={setF}/>
       <div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={valider}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div>
     </Modl>}
@@ -353,7 +353,7 @@ function Activites({data,save,egNom}){
     </Card>
     {modal&&<Modl title={edit?`Modifier — ${TABS.find(t=>t.k===sub)?.l}`:`Nouvelle — ${TABS.find(t=>t.k===sub)?.l}`} onClose={()=>setModal(false)}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
-        {(FLD[sub]||[]).map(fd=><div key={fd.k} style={{gridColumn:["parents","lieu","pasteur","nomFille","nomGarcon"].includes(fd.k)?"span 2":"span 1"}}><Inp label={fd.l} value={form[fd.k]} onChange={f(fd.k)} type={fd.t||"text"}/></div>)}
+        {(FLD[sub]||[]).map(fd=><div key={fd.k} style={{gridColumn:["parents","lieu","pasteur","nomFille","nomGarcon"].includes(fd.k)?"span 2":"span 1"}}><Inp label={fd.l} name={fd.k} value={form[fd.k]} onChange={f} type={fd.t||"text"}/></div>)}
       </div>
       <div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={valider}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div>
     </Modl>}
@@ -416,7 +416,7 @@ function Localisation({data,save}){
   const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
   const go=()=>save({...data,localisation:form});
   return<div><SH>Localisation GPS</SH>
-    <Card style={{padding:18,marginBottom:13}}><Inp label="Adresse complète" value={form.adresse} name="adresse" onChange={f} placeholder="ex: Rue X, Quartier Y, Port-au-Prince"/><Inp label="Coordonnées GPS" value={form.coordonnees} name="coordonnees" onChange={f} placeholder="ex: 18.5432, -72.3388"/><Inp label="Lien Google Maps" value={form.lienMaps} onChange={f("lienMaps")} placeholder="https://maps.google.com/..."/>
+    <Card style={{padding:18,marginBottom:13}}><Inp label="Adresse complète" value={form.adresse} name="adresse" onChange={f} placeholder="ex: Rue X, Quartier Y, Port-au-Prince"/><Inp label="Coordonnées GPS" value={form.coordonnees} name="coordonnees" onChange={f} placeholder="ex: 18.5432, -72.3388"/><Inp label="Lien Google Maps" value={form.lienMaps} name="lienMaps" onChange={f} placeholder="https://maps.google.com/..."/>
     <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}22`,borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:10,color:C.gray,lineHeight:1.7}}>📱 <strong style={{color:C.gL2}}>Comment obtenir les coordonnées GPS :</strong><br/>Ouvrez Google Maps → Maintenez appuyé sur l'emplacement → Copiez les coordonnées (ex: 18.5432, -72.3388)</div>
     <div style={{display:"flex",gap:8}}><Btn onClick={go}>💾 Sauvegarder</Btn>{(form.coordonnees||form.lienMaps)&&<Btn onClick={()=>window.open(`https://www.google.com/maps?q=${encodeURIComponent(form.coordonnees||form.lienMaps)}`,"_blank")} v="blue">🗺 Voir sur Maps</Btn>}</div>
     </Card>
