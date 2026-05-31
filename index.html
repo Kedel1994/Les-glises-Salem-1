@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Les Églises Salem v3.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#080F18;font-family:Georgia,'Times New Roman',serif;color:#F0EAD8;}
+input,select,button,textarea{font-family:Georgia,'Times New Roman',serif;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:#C9A84C44;border-radius:2px;}
+select option{background:#111D2B;color:#F0EAD8;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.spin{animation:spin .8s linear infinite;}.pulse{animation:pulse 2s infinite;}
+</style>
+</head>
+<body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{getDatabase,ref,set,get,onValue,remove}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+const FC={apiKey:"AIzaSyDsFMzd8U-9Y2Khqz7BBGIa_OOT5qeYmmM",authDomain:"les-eglises-salem.firebaseapp.com",projectId:"les-eglises-salem",storageBucket:"les-eglises-salem.firebasestorage.app",messagingSenderId:"952025181250",appId:"1:952025181250:web:5fda04e2cc4958e24ad1db",databaseURL:"https://les-eglises-salem-default-rtdb.firebaseio.com"};
+const app=initializeApp(FC);const db=getDatabase(app);
+window.__FB={db,ref,set,get,onValue,remove};
+window.dispatchEvent(new Event("fb-ok"));
+</script>
+<script type="text/babel">
+const{useState,useEffect,useCallback,useRef}=React;
+const VER="3.0";
+const VERSET="« Je bâtirai mon Église » — Matthieu 16v18";
+const MPW="pastoral2025";
+const C={gold:"#C9A84C",gD:"#8A6A28",gL:"#E8C97A",bg:"#080F18",bg2:"#0E1A28",bg3:"#162236",bg4:"#1D2E42",w:"#F0EAD8",gray:"#7A8FA8",gL2:"#A0B0C4",ok:"#2EAA72",err:"#CC4455",blue:"#3A8FD4",ora:"#E07830"};
+const POSIT=["Membre","Diacre","Pasteur","Ancien","Prédicateur","Resp. de groupe","Resp. de ministère","Secrétaire","Trésorier"];
+const SANG=["A+","A-","B+","B-","AB+","AB-","O+","O-","Inconnu"];
+const EDU=["Primaire","Secondaire","Universitaire","Technique","Aucun"];
+const MATRI=["Célibataire","Fiancé(e)","Marié(e)","Divorcé(e)","Veuf/Veuve","Union libre","Séparé(e)"];
+const JOURS=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+const SRVT=["Culte du dimanche","Culte de semaine","École du dimanche","Prière","Jeûne","Jeunesse","Dames","Hommes"];
+
+const fb=()=>window.__FB;
+const dbr=p=>fb().ref(fb().db,p);
+const fGet=async p=>{try{const s=await fb().get(dbr(p));return s.exists()?s.val():null;}catch{return null;}};
+const fSet=async(p,v)=>{try{await fb().set(dbr(p),v);}catch{}};
+const fDel=async p=>{try{await fb().remove(dbr(p));}catch{}};
+const fSub=(p,cb)=>{fb().onValue(dbr(p),s=>cb(s.exists()?s.val():null));return()=>{};};
+const ls={g:(k,d=null)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}},s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}}};
+const uid=()=>"id_"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
+const genPw=()=>{const w=["grace","gloire","amen","paix","joie","lumiere","force","foi","espoir","salem"];return w[Math.floor(Math.random()*w.length)]+(1000+Math.floor(Math.random()*9000));};
+const gH=n=>(n||0).toLocaleString("fr-FR")+" G";
+const finTot=d=>{if(!d?.finances)return{e:0,d:0};const e=(d.finances.entrees||[]).reduce((s,x)=>s+(+x.dimes||0)+(+x.offrandes||0)+(+x.dons||0),0);return{e,d:(d.finances.depenses||[]).reduce((s,x)=>s+(+x.montant||0),0)};};
+const egVide=(nom="")=>({nom,membres:[],conversions:[],comites:[],ministeres:[],groupes:[],diacres:[],pasteurs:[],veuves:[],activites:{presentations:[],baptemes:[],evangelisations:[],missions:[],mariages:[],reveils:[],enterrements:[]},services:[],finances:{entrees:[],depenses:[]},localisation:{adresse:"",coordonnees:"",lienMaps:""}});
+
+function imprimer(titre,html,eg=""){
+  const w=window.open("","_blank","width=900,height=700");
+  if(!w){alert("Activez les popups pour imprimer.");return;}
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${titre}</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111;}h1{color:#8A6A28;border-bottom:3px solid #C9A84C;padding-bottom:10px;margin-bottom:18px;}h2{color:#162236;margin:16px 0 7px;font-size:14px;}table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;}th{background:#162236;color:#C9A84C;padding:7px 10px;text-align:left;font-size:10px;letter-spacing:1px;}td{padding:7px 10px;border-bottom:1px solid #eee;}tr:nth-child(even){background:#f9f9f9;}.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;border-bottom:1px solid #ddd;padding-bottom:13px;}.ftr{margin-top:34px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#999;text-align:center;}</style></head><body><div class="hdr"><div><div style="font-size:19px;font-weight:bold;color:#8A6A28">✝ Les Églises Salem</div><div style="font-size:11px;color:#555;margin-top:3px">${eg}</div></div><div style="text-align:right;font-size:11px;color:#777"><div style="font-size:15px;font-weight:bold;color:#8A6A28">${titre}</div><div>Imprimé le ${new Date().toLocaleDateString("fr-FR")} à ${new Date().toLocaleTimeString("fr-FR")}</div><div>v${VER}</div></div></div>${html}<div class="ftr">Les Églises Salem — Système de gestion ecclésiastique v${VER}</div></body></html>`);
+  w.document.close();setTimeout(()=>{w.focus();w.print();},600);
+}
+const htmlM=l=>!l?.length?"<p>Aucun enregistrement</p>":`<table><tr><th>Prénom</th><th>Nom</th><th>Sexe</th><th>Type</th><th>Position</th><th>Tél.</th><th>Email</th><th>État civil</th><th>Adresse</th></tr>${l.map(m=>`<tr><td>${m.prenom||""}</td><td>${m.nom||""}</td><td>${m.sexe||""}</td><td>${m.type==="baptise"?"Baptisé":"Croyant"}</td><td>${m.position||""}</td><td>${m.tel||""}</td><td>${m.email||""}</td><td>${m.etatCivil||""}</td><td>${m.adresse||""}</td></tr>`).join("")}</table>`;
+const htmlP=l=>!l?.length?"<p>Aucun enregistrement</p>":`<table><tr><th>Prénom</th><th>Nom</th><th>Sexe</th><th>Position</th><th>Tél.</th><th>Email</th><th>État civil</th></tr>${l.map(p=>`<tr><td>${p.prenom||""}</td><td>${p.nom||""}</td><td>${p.sexe||""}</td><td>${p.position||""}</td><td>${p.tel||""}</td><td>${p.email||""}</td><td>${p.etatCivil||""}</td></tr>`).join("")}</table>`;
+const htmlF=fin=>{const e=fin?.entrees||[];const d=fin?.depenses||[];const tE=e.reduce((s,x)=>s+(+x.dimes||0)+(+x.offrandes||0)+(+x.dons||0),0);const tD=d.reduce((s,x)=>s+(+x.montant||0),0);return`<h2>Entrées</h2><table><tr><th>Mois</th><th>Dîmes</th><th>Offrandes</th><th>Dons</th><th>Total</th></tr>${e.map(x=>`<tr><td>${x.mois||""}</td><td>${gH(+x.dimes)}</td><td>${gH(+x.offrandes)}</td><td>${gH(+x.dons)}</td><td><b>${gH((+x.dimes||0)+(+x.offrandes||0)+(+x.dons||0))}</b></td></tr>`).join("")}<tr style="background:#f0f0f0"><td><b>TOTAL</b></td><td colspan="3"></td><td><b>${gH(tE)}</b></td></tr></table><h2>Dépenses</h2><table><tr><th>Date</th><th>Description</th><th>Montant</th></tr>${d.map(x=>`<tr><td>${x.date||""}</td><td>${x.description||""}</td><td>${gH(+x.montant)}</td></tr>`).join("")}<tr style="background:#f0f0f0"><td colspan="2"><b>TOTAL</b></td><td><b>${gH(tD)}</b></td></tr></table><h2 style="color:#2EAA72">Solde : ${gH(tE-tD)}</h2>`;};
+
+const iS={background:C.bg3,border:`1px solid ${C.gold}44`,borderRadius:8,color:C.w,padding:"9px 13px",fontSize:13,outline:"none",fontFamily:"Georgia,serif",width:"100%",boxSizing:"border-box"};
+const lS={fontSize:10,color:C.gray,letterSpacing:1.2,marginBottom:5,display:"block",fontWeight:700};
+const Inp=({label,name,value,onChange,type="text",placeholder=""})=><div style={{marginBottom:12}}>{label&&<label style={lS}>{label.toUpperCase()}</label>}<input type={type} name={name||""} value={value||""} onChange={onChange} placeholder={placeholder} style={iS} autoComplete="off"/></div>;
+const Sel=({label,name,value,onChange,options})=><div style={{marginBottom:12}}>{label&&<label style={lS}>{label.toUpperCase()}</label>}<select name={name||""} value={value||""} onChange={onChange} style={{...iS,cursor:"pointer"}}><option value="">— Choisir —</option>{options.map(o=><option key={o}>{o}</option>)}</select></div>;
+
+function Btn({children,onClick,v="gold",sm,full,disabled}){
+  const s={gold:{bg:`linear-gradient(135deg,${C.gD},${C.gold})`,c:C.bg,b:"none"},outline:{bg:"transparent",c:C.gray,b:`1px solid ${C.gray}55`},danger:{bg:`${C.err}18`,c:C.err,b:`1px solid ${C.err}44`},blue:{bg:`linear-gradient(135deg,#1A4080,${C.blue})`,c:"#fff",b:"none"},green:{bg:`linear-gradient(135deg,#155530,${C.ok})`,c:"#fff",b:"none"},orange:{bg:`linear-gradient(135deg,#804020,${C.ora})`,c:"#fff",b:"none"}}[v]||{bg:`linear-gradient(135deg,${C.gD},${C.gold})`,c:C.bg,b:"none"};
+  return<button onClick={onClick} disabled={disabled} style={{padding:sm?"5px 12px":"9px 18px",width:full?"100%":"auto",background:s.bg,color:s.c,border:s.b,borderRadius:9,fontWeight:800,fontSize:sm?11:13,cursor:disabled?"not-allowed":"pointer",fontFamily:"Georgia,serif",letterSpacing:.6,opacity:disabled?.5:1}}>{children}</button>;
+}
+const Modl=({title,sub,onClose,children,wide})=><div style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,.9)",display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(8px)"}}><div style={{background:C.bg2,border:`1px solid ${C.gold}66`,borderRadius:18,width:"95%",maxWidth:wide?780:540,maxHeight:"92vh",overflowY:"auto",padding:"22px 26px",boxShadow:`0 0 80px ${C.gold}18`}}><div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16}}><div><h3 style={{margin:0,color:C.gold,fontSize:15,fontWeight:800,letterSpacing:1}}>{title}</h3>{sub&&<div style={{fontSize:10,color:C.gray,marginTop:3}}>{sub}</div>}</div><button onClick={onClose} style={{background:"transparent",border:"none",color:C.gray,fontSize:21,cursor:"pointer",lineHeight:1}}>✕</button></div>{children}</div></div>;
+const Card=({children,style={}})=><div style={{background:`linear-gradient(135deg,${C.bg3},${C.bg4})`,border:`1px solid ${C.gold}22`,borderRadius:14,...style}}>{children}</div>;
+const SB=({label,value,icon,color=C.gold})=><div style={{display:"flex",alignItems:"center",gap:9,padding:"10px 13px",background:`${color}0D`,border:`1px solid ${color}28`,borderRadius:12,flex:1,minWidth:98}}><span style={{fontSize:16}}>{icon}</span><div><div style={{fontSize:15,fontWeight:800,color,lineHeight:1}}>{value}</div><div style={{fontSize:9,color:C.gray,marginTop:2}}>{label}</div></div></div>;
+const SH=({children})=><h2 style={{margin:"0 0 14px",fontSize:16,fontWeight:800,color:C.gold,letterSpacing:1,borderBottom:`1px solid ${C.gold}33`,paddingBottom:9}}>{children}</h2>;
+const G2=({children})=><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>{children}</div>;
+const G3=({children})=><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 12px"}}>{children}</div>;
+const CB=({online})=><div style={{display:"inline-flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:online?`${C.ok}18`:`${C.ora}18`,border:`1px solid ${online?C.ok:C.ora}44`,fontSize:9,fontWeight:700,color:online?C.ok:C.ora}}><div style={{width:5,height:5,borderRadius:"50%",background:online?C.ok:C.ora}} className={online?"":"pulse"}/>{online?"☁ Synchronisé":"⚡ Hors ligne"}</div>;
+const BP=({onClick})=><button onClick={onClick} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 11px",background:`${C.blue}18`,border:`1px solid ${C.blue}44`,borderRadius:8,color:C.blue,cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"inherit"}}>🖨 Imprimer</button>;
+const BEdit=({onClick})=><button onClick={onClick} style={{padding:"4px 8px",background:`${C.gold}14`,border:`1px solid ${C.gold}44`,borderRadius:6,color:C.gold,cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit"}} title="Modifier">✏</button>;
+const BDel=({onClick})=><button onClick={onClick} style={{padding:"4px 8px",background:`${C.err}14`,border:`1px solid ${C.err}44`,borderRadius:6,color:C.err,cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit"}} title="Supprimer">🗑</button>;
+
+const ChampsC=({form,set})=>{const f=useCallback(e=>set(p=>({...p,[e.target.name]:e.target.value})),[set]);return<><div style={{borderTop:`1px solid ${C.gold}22`,margin:"6px 0 10px",paddingTop:10,fontSize:10,color:C.gold,fontWeight:700,letterSpacing:1}}>CONTACT & ÉTAT CIVIL</div><G3><Inp label="Téléphone" value={form.tel} name="tel" onChange={f} placeholder="509-XXXX-XXXX"/><Inp label="Email" value={form.email} name="email" onChange={f} type="email"/><Sel label="État civil" value={form.etatCivil} name="etatCivil" onChange={f} options={MATRI}/></G3><G2><Inp label="Personne à contacter" value={form.persContact} name="persContact" onChange={f}/><Inp label="Tél. contact" value={form.telContact} name="telContact" onChange={f} placeholder="509-XXXX-XXXX"/></G2></>;};
+
+function useOnline(){const[on,setOn]=useState(navigator.onLine);useEffect(()=>{const a=()=>setOn(true);const b=()=>setOn(false);window.addEventListener("online",a);window.addEventListener("offline",b);return()=>{window.removeEventListener("online",a);window.removeEventListener("offline",b);};},[]);return on;}
+function useEgData(egId){const[data,setD]=useState(null);const online=useOnline();useEffect(()=>{if(!egId)return;const c=ls.g("eg_"+egId);if(c)setD(c);const u=fSub("eglises/"+egId+"/data",v=>{const d=v||egVide();setD(d);ls.s("eg_"+egId,d);});return u;},[egId]);const save=useCallback(async nd=>{setD(nd);ls.s("eg_"+egId,nd);await fSet("eglises/"+egId+"/data",nd);},[egId]);return{data,save,online};}
+function useMaster(){const[cfg,setCR]=useState(null);const online=useOnline();useEffect(()=>{const c=ls.g("m_cfg");if(c)setCR(c);const u=fSub("master",v=>{const d=v||{password:MPW,eglises:[]};setCR(d);ls.s("m_cfg",d);});return u;},[]);const saveCfg=useCallback(async nc=>{setCR(nc);ls.s("m_cfg",nc);await fSet("master",nc);},[]);return{cfg,saveCfg,online};}
+
+function Splash(){return<div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}><svg width="52" height="52" viewBox="0 0 52 52" fill="none"><rect x="21" y="4" width="10" height="44" rx="5" fill={C.gold}/><rect x="4" y="19" width="44" height="10" rx="5" fill={C.gold}/></svg><div style={{fontSize:19,fontWeight:800,color:C.gold,letterSpacing:3}}>LES ÉGLISES SALEM</div><div style={{display:"flex",alignItems:"center",gap:8,color:C.gray,fontSize:12}}><div style={{width:15,height:15,border:`2px solid ${C.gold}`,borderTopColor:"transparent",borderRadius:"50%"}} className="spin"/>Connexion au cloud...</div><div style={{fontSize:9,color:C.gray}}>v{VER}</div></div>;}
+
+function Login({masterPw,egCfg,onMaster,onEglise}){
+  const[pass,setPass]=useState("");const[show,setShow]=useState(false);const[err,setErr]=useState(false);
+  const isEg=!!egCfg;
+  const go=()=>{const ok=isEg?(pass===egCfg.password):(pass===masterPw);if(ok){isEg?onEglise():onMaster();}else{setErr(true);setTimeout(()=>setErr(false),2000);}};
+  return<div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}><div style={{width:"100%",maxWidth:390,background:`linear-gradient(160deg,${C.bg2},${C.bg3})`,border:`1px solid ${C.gold}66`,borderRadius:22,padding:"40px 32px",boxShadow:`0 0 100px ${C.gold}15`,textAlign:"center"}}>
+  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{marginBottom:9}}><rect x="19" y="4" width="10" height="40" rx="5" fill={C.gold}/><rect x="4" y="17" width="40" height="10" rx="5" fill={C.gold}/></svg>
+  {isEg?(<><div style={{fontSize:9,color:C.gray,letterSpacing:3,marginBottom:3}}>SYSTÈME DE GESTION</div>{egCfg.photo&&<img src={egCfg.photo} alt="" style={{width:64,height:64,borderRadius:12,objectFit:"cover",margin:"7px auto",display:"block",border:`2px solid ${C.gold}44`}}/>}<div style={{fontSize:17,fontWeight:800,color:C.gold,letterSpacing:2,marginBottom:4,lineHeight:1.2}}>{egCfg.nom}</div></>):(<><div style={{fontSize:9,color:C.gray,letterSpacing:3,marginBottom:3}}>PASTEUR RESPONSABLE</div><div style={{fontSize:10,color:C.gL2,letterSpacing:3,marginBottom:3}}>LES ÉGLISES DE DIEU</div><div style={{fontSize:22,fontWeight:800,color:C.gold,letterSpacing:4,marginBottom:4}}>SALEM</div></>)}
+  <div style={{fontSize:9,color:C.gray,fontStyle:"italic",marginBottom:24,lineHeight:1.6}}>{VERSET}</div>
+  <div style={{textAlign:"left",marginBottom:5}}><label style={lS}>{isEg?"MOT DE PASSE — ÉGLISE":"MOT DE PASSE — SYSTÈME MÈRE"}</label><div style={{position:"relative"}}><input type={show?"text":"password"} value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} placeholder="••••••••" style={{...iS,border:`1px solid ${err?C.err:C.gold}55`,paddingRight:40,letterSpacing:3,fontSize:14,textAlign:"center"}}/><button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:C.gray,cursor:"pointer",fontSize:13}}>{show?"🙈":"👁"}</button></div></div>
+  {err&&<div style={{color:C.err,fontSize:11,marginBottom:7,fontWeight:700}}>⚠ Mot de passe incorrect</div>}
+  <button onClick={go} style={{width:"100%",marginTop:12,padding:"12px",background:`linear-gradient(135deg,${C.gD},${C.gold})`,color:C.bg,border:"none",borderRadius:10,fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"Georgia,serif",letterSpacing:2,boxShadow:`0 5px 20px ${C.gold}28`,marginBottom:12}}>CONNEXION</button>
+  {!isEg&&<div style={{fontSize:9,color:`${C.gray}88`}}>Mot de passe par défaut : <span style={{color:C.gold}}>pastoral2025</span> · v{VER}</div>}
+  </div></div>;
+}
+
+function ChgPass({actuel,onSave,onClose}){
+  const[a,setA]=useState("");const[n,setN]=useState("");const[c,setC]=useState("");const[err,setE]=useState("");const[ok,setOk]=useState(false);
+  const go=()=>{if(a!==actuel){setE("Ancien mot de passe incorrect.");return;}if(n.length<6){setE("Minimum 6 caractères.");return;}if(n!==c){setE("Les mots de passe ne correspondent pas.");return;}onSave(n);setOk(true);};
+  return<Modl title="Changer le mot de passe" onClose={onClose}>{ok?<div style={{textAlign:"center",padding:"16px 0"}}><div style={{fontSize:32,marginBottom:8}}>✅</div><div style={{color:C.ok,fontWeight:700,marginBottom:12}}>Mot de passe changé !</div><Btn onClick={onClose}>Fermer</Btn></div>
+  :<><Inp label="Ancien mot de passe" value={a} onChange={e=>setA(e.target.value)} type="password"/><Inp label="Nouveau mot de passe" value={n} onChange={e=>setN(e.target.value)} type="password" placeholder="Minimum 6 caractères"/><Inp label="Confirmer" value={c} onChange={e=>setC(e.target.value)} type="password"/>{err&&<div style={{color:C.err,fontSize:11,marginBottom:8,fontWeight:700}}>⚠ {err}</div>}<div style={{display:"flex",gap:8,marginTop:6}}><Btn onClick={go}>✓ CHANGER</Btn><Btn onClick={onClose} v="outline">ANNULER</Btn></div></>}
+  </Modl>;
+}
+
+function ModalLien({eg,onClose}){
+  const base=window.location.href.replace(/[?#].*/,"");
+  const lien=`${base}?eglise=${eg.id}`;
+  const[c1,setC1]=useState(false);const[c2,setC2]=useState(false);
+  const tout=`⛪ ${eg.nom}\n\n🔗 Lien d'accès :\n${lien}\n\n🔑 Code d'accès : ${eg.password}\n\n📱 Instructions :\n1. Ouvrez ce lien dans votre navigateur\n2. Entrez le code d'accès\n3. Vos données se synchronisent automatiquement ☁\n\n✝ Les Églises Salem v${VER}`;
+  return<Modl title={"🔗 Accès — "+eg.nom} onClose={onClose} wide>
+    {eg.photo&&<div style={{textAlign:"center",marginBottom:11}}><img src={eg.photo} alt="" style={{width:64,height:64,borderRadius:12,objectFit:"cover",border:`2px solid ${C.gold}44`}}/></div>}
+    <div style={{background:`${C.gold}0A`,border:`1px solid ${C.gold}33`,borderRadius:12,padding:15,marginBottom:14}}>
+      <div style={{fontSize:9,color:C.gray,fontWeight:700,letterSpacing:1,marginBottom:6}}>🔗 LIEN D'ACCÈS</div>
+      <div style={{display:"flex",gap:7,alignItems:"center",marginBottom:13}}>
+        <div style={{flex:1,background:C.bg,border:`1px solid ${C.gold}33`,borderRadius:8,padding:"8px 11px",fontSize:10,color:C.gL,wordBreak:"break-all"}}>{lien}</div>
+        <button onClick={()=>{navigator.clipboard?.writeText(lien);setC1(true);setTimeout(()=>setC1(false),2000);}} style={{padding:"7px 11px",background:c1?`${C.ok}22`:`${C.blue}22`,border:`1px solid ${c1?C.ok:C.blue}44`,borderRadius:8,color:c1?C.ok:C.blue,cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>{c1?"✅ Copié":"📋 Copier"}</button>
+      </div>
+      <div style={{fontSize:9,color:C.gray,fontWeight:700,letterSpacing:1,marginBottom:6}}>🔑 CODE D'ACCÈS</div>
+      <div style={{background:C.bg,border:`2px solid ${C.gold}55`,borderRadius:8,padding:"11px",fontSize:20,color:C.gold,fontWeight:800,letterSpacing:5,textAlign:"center"}}>{eg.password}</div>
+    </div>
+    <div style={{fontSize:10,color:C.gray,background:`${C.blue}08`,border:`1px solid ${C.blue}22`,borderRadius:8,padding:"9px 12px",marginBottom:14,lineHeight:1.7}}>📋 Partagez ce lien avec le responsable. Il ouvre le lien dans son navigateur et entre le code d'accès. Les données se synchronisent automatiquement ☁</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:7}}>
+      <button onClick={()=>{navigator.clipboard?.writeText(tout);setC2(true);setTimeout(()=>setC2(false),2000);}} style={{padding:"7px 4px",background:c2?`${C.ok}22`:`${C.gold}14`,border:`1px solid ${c2?C.ok:C.gold}44`,borderRadius:8,color:c2?C.ok:C.gold,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit",textAlign:"center"}}>{c2?"✅ Copié":"📋 Tout copier"}</button>
+      <button onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent(tout)}`,"_blank")} style={{padding:"7px 4px",background:"#25D36618",border:"1px solid #25D36644",borderRadius:8,color:"#25D366",cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit",textAlign:"center"}}>💬 WhatsApp</button>
+      <button onClick={()=>window.open(`mailto:?subject=${encodeURIComponent("Accès — "+eg.nom)}&body=${encodeURIComponent(tout)}`,"_blank")} style={{padding:"7px 4px",background:`${C.blue}18`,border:`1px solid ${C.blue}44`,borderRadius:8,color:C.blue,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit",textAlign:"center"}}>📧 Email</button>
+      <button onClick={onClose} style={{padding:"7px 4px",background:"transparent",border:`1px solid ${C.gray}44`,borderRadius:8,color:C.gray,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit",textAlign:"center"}}>Fermer</button>
+    </div>
+  </Modl>;
+}
+
+function Membres({data,save,egNom}){
+  const[tab,setTab]=useState("baptise");const[modal,setModal]=useState(false);const[edit,setEdit]=useState(null);const[form,setF]=useState({});const[s,setS]=useState("");
+  const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const liste=(data.membres||[]).filter(m=>m.type===tab&&(!s||(m.nom+" "+m.prenom).toLowerCase().includes(s.toLowerCase())));
+  const openAdd=()=>{setEdit(null);setF({sexe:"Homme",type:tab});setModal(true);};
+  const openEdit=m=>{setEdit(m);setF({...m});setModal(true);};
+  const valider=()=>{if(edit){save({...data,membres:(data.membres||[]).map(m=>m.id===edit.id?{...form,id:edit.id}:m)});}else{save({...data,membres:[...(data.membres||[]),{...form,type:tab,id:uid()}]});}setModal(false);setEdit(null);setF({});};
+  const del=id=>{if(!window.confirm("Supprimer ce membre ?"))return;save({...data,membres:(data.membres||[]).filter(m=>m.id!==id)});};
+  return<div>
+    <SH>Enregistrement des Membres</SH>
+    <div style={{display:"flex",gap:7,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+      {[["baptise","✝ Baptisés"],["non-baptise","◌ Non Baptisés"]].map(([t,l])=><button key={t} onClick={()=>setTab(t)} style={{padding:"6px 13px",borderRadius:8,fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",background:tab===t?`linear-gradient(135deg,${C.gD},${C.gold})`:"transparent",color:tab===t?C.bg:C.gray,border:tab===t?"none":`1px solid ${C.gray}44`}}>{l}</button>)}
+      <div style={{flex:1}}/><input placeholder="🔍 Rechercher..." value={s} onChange={e=>setS(e.target.value)} style={{...iS,width:135,padding:"6px 10px"}}/>
+      <BP onClick={()=>imprimer(tab==="baptise"?"Membres Baptisés":"Membres non Baptisés",htmlM(liste),egNom)}/>
+      <Btn onClick={openAdd} sm>+ Ajouter</Btn>
+    </div>
+    <Card style={{overflow:"hidden"}}>
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr 75px",padding:"7px 12px",borderBottom:`1px solid ${C.gold}22`,fontSize:9,color:C.gray,fontWeight:700,letterSpacing:1.4}}><span>NOM COMPLET</span><span>ADRESSE</span><span>POSITION</span><span>TÉL.</span><span>ÉTAT CIVIL</span><span>ACTIONS</span></div>
+      {liste.length===0&&<div style={{padding:24,textAlign:"center",color:C.gray}}>Aucun membre</div>}
+      {liste.map((m,i)=><div key={m.id} style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr 75px",padding:"8px 12px",alignItems:"center",borderBottom:i<liste.length-1?`1px solid ${C.gold}11`:"none"}}>
+        <div style={{display:"flex",gap:7,alignItems:"center"}}><div style={{width:25,height:25,borderRadius:"50%",background:`linear-gradient(135deg,${C.gD},${C.gold})`,display:"flex",alignItems:"center",justifyContent:"center",color:C.bg,fontWeight:800,fontSize:9,flexShrink:0}}>{m.prenom?.[0]}{m.nom?.[0]}</div><div><div style={{fontWeight:700,fontSize:11}}>{m.prenom} {m.nom}</div><div style={{fontSize:9,color:C.gray}}>{m.email||""}</div></div></div>
+        <span style={{fontSize:10,color:C.gray}}>{m.adresse}</span><span style={{fontSize:10}}>{m.position||"—"}</span><span style={{fontSize:10}}>{m.tel||"—"}</span><span style={{fontSize:9,color:C.gL}}>{m.etatCivil||"—"}</span>
+        <div style={{display:"flex",gap:4}}><BEdit onClick={()=>openEdit(m)}/><BDel onClick={()=>del(m.id)}/></div>
+      </div>)}
+    </Card>
+    {modal&&<Modl title={edit?"Modifier Membre":(tab==="baptise"?"Nouveau Membre Baptisé":"Nouveau Membre non Baptisé")} onClose={()=>setModal(false)} wide>
+      <G2><Inp label="Nom" value={form.nom} name="nom" onChange={f}/><Inp label="Prénom" value={form.prenom} name="prenom" onChange={f}/></G2>
+      <G3><Sel label="Sexe" value={form.sexe} name="sexe" onChange={f} options={["Homme","Femme"]}/><Inp label="Date de naissance" value={form.dateNaiss} name="dateNaiss" onChange={f} type="date"/><Inp label="Adresse" value={form.adresse} name="adresse" onChange={f}/></G3>
+      <Inp label="Date de présentation" value={form.datePresentation} name="datePresentation" onChange={f} type="date"/>
+      {(tab==="baptise"||edit?.type==="baptise")&&<><div style={{borderTop:`1px solid ${C.gold}22`,margin:"6px 0 10px",paddingTop:10,fontSize:10,color:C.gold,fontWeight:700,letterSpacing:1}}>INFORMATIONS ECCLÉSIASTIQUES</div>
+        <G2><Inp label="Date de conversion" value={form.dateConv} name="dateConv" onChange={f} type="date"/><Inp label="Date de baptême" value={form.dateBapt} name="dateBapt" onChange={f} type="date"/></G2>
+        <Sel label="Position" value={form.position} name="position" onChange={f} options={POSIT}/>
+        <G2><Inp label="Groupe" value={form.groupe} name="groupe" onChange={f}/><Inp label="Ministère" value={form.ministere} name="ministere" onChange={f}/></G2></>}
+      <div style={{borderTop:`1px solid ${C.gold}22`,margin:"6px 0 10px",paddingTop:10,fontSize:10,color:C.gold,fontWeight:700,letterSpacing:1}}>INFORMATIONS SUPPLÉMENTAIRES</div>
+      <G2><Sel label="Groupe sanguin" value={form.groupeSang} name="groupeSang" onChange={f} options={SANG}/><Sel label="Niveau d'éducation" value={form.niveauEdu} name="niveauEdu" onChange={f} options={EDU}/></G2>
+      <ChampsC form={form} set={setF}/>
+      <div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={valider}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div>
+    </Modl>}
+  </div>;
+}
+
+function Conversions({data,save,egNom}){
+  const[modal,setModal]=useState(false);const[edit,setEdit]=useState(null);const[form,setF]=useState({});
+  const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const valider=()=>{if(edit){save({...data,conversions:(data.conversions||[]).map(c=>c.id===edit.id?{...form,id:edit.id}:c)});}else{save({...data,conversions:[...(data.conversions||[]),{...form,id:uid()}]});}setModal(false);setEdit(null);setF({});};
+  const del=id=>{if(!window.confirm("Supprimer ?"))return;save({...data,conversions:(data.conversions||[]).filter(c=>c.id!==id)});};
+  return<div>
+    <SH>Conversions</SH>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}>
+      <BP onClick={()=>{const h=`<table><tr><th>Prénom</th><th>Nom</th><th>Sexe</th><th>Adresse</th><th>Lieu</th><th>Date</th><th>Tél.</th></tr>${(data.conversions||[]).map(c=>`<tr><td>${c.prenom||""}</td><td>${c.nom||""}</td><td>${c.sexe||""}</td><td>${c.adresse||""}</td><td>${c.lieu||""}</td><td>${c.date||""}</td><td>${c.tel||""}</td></tr>`).join("")}</table>`;imprimer("Conversions",h,egNom);}}/>
+      <Btn onClick={()=>{setEdit(null);setF({sexe:"Homme"});setModal(true);}} sm>+ Nouvelle</Btn>
+    </div>
+    <Card style={{overflow:"hidden"}}>
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1.5fr 1fr 70px",padding:"7px 12px",borderBottom:`1px solid ${C.gold}22`,fontSize:9,color:C.gray,fontWeight:700,letterSpacing:1.4}}><span>NOM</span><span>SEXE</span><span>LIEU</span><span>DATE</span><span>ACTIONS</span></div>
+      {!(data.conversions||[]).length&&<div style={{padding:24,textAlign:"center",color:C.gray}}>Aucune conversion</div>}
+      {(data.conversions||[]).map((c,i)=><div key={c.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1.5fr 1fr 70px",padding:"8px 12px",alignItems:"center",borderBottom:i<data.conversions.length-1?`1px solid ${C.gold}11`:"none"}}>
+        <div style={{fontWeight:700,fontSize:11}}>{c.prenom} {c.nom}</div><span style={{fontSize:10,color:C.gray}}>{c.sexe}</span><span style={{fontSize:10}}>{c.lieu}</span><span style={{fontSize:9,color:C.gold}}>{c.date}</span>
+        <div style={{display:"flex",gap:4}}><BEdit onClick={()=>{setEdit(c);setF({...c});setModal(true);}}/><BDel onClick={()=>del(c.id)}/></div>
+      </div>)}
+    </Card>
+    {modal&&<Modl title={edit?"Modifier Conversion":"Nouvelle Conversion"} onClose={()=>setModal(false)} wide>
+      <G2><Inp label="Nom" value={form.nom} name="nom" onChange={f}/><Inp label="Prénom" value={form.prenom} name="prenom" onChange={f}/></G2>
+      <G3><Sel label="Sexe" value={form.sexe} name="sexe" onChange={f} options={["Homme","Femme"]}/><Inp label="Date de naissance" value={form.dateNaiss} name="dateNaiss" onChange={f} type="date"/><Inp label="Adresse" value={form.adresse} name="adresse" onChange={f}/></G3>
+      <G2><Inp label="Lieu" value={form.lieu} name="lieu" onChange={f}/><Inp label="Date" value={form.date} name="date" onChange={f} type="date"/></G2>
+      <ChampsC form={form} set={setF}/>
+      <div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={valider}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div>
+    </Modl>}
+  </div>;
+}
+
+function GroupLike({data,save,field,title,icon,egNom}){
+  const[modal,setModal]=useState(false);const[editG,setEditG]=useState(null);const[form,setF]=useState({nom:"",fonction:""});
+  const[memModal,setMemModal]=useState(null);const[editM,setEditM]=useState(null);const[mf,setMf]=useState({nom:"",prenom:"",fonction:""});
+  const openAdd=()=>{setEditG(null);setF({nom:"",fonction:""});setModal(true);};
+  const openEdit=g=>{setEditG(g);setF({nom:g.nom,fonction:g.fonction||""});setModal(true);};
+  const validerG=()=>{const item=editG?{...editG,...form}:{...form,membres:[],id:uid()};if(editG){save({...data,[field]:(data[field]||[]).map(g=>g.id===editG.id?item:g)});}else{save({...data,[field]:[...(data[field]||[]),item]});}setModal(false);setEditG(null);setF({nom:"",fonction:""});};
+  const del=id=>{if(!window.confirm("Supprimer ?"))return;save({...data,[field]:(data[field]||[]).filter(g=>g.id!==id)});};
+  const openMemModal=g=>setMemModal({...g,membres:[...(g.membres||[])]});
+  const validerMem=()=>{const nm=editM!==null?(memModal.membres||[]).map((m,i)=>i===editM?{...mf}:m):[...(memModal.membres||[]),{...mf}];const updated={...memModal,membres:nm};save({...data,[field]:(data[field]||[]).map(g=>g.id===memModal.id?updated:g)});setMemModal(updated);setEditM(null);setMf({nom:"",prenom:"",fonction:""});};
+  const delMem=(gId,idx)=>{const g=(data[field]||[]).find(x=>x.id===gId);if(!g)return;const nm=(g.membres||[]).filter((_,i)=>i!==idx);const updated={...g,membres:nm};save({...data,[field]:(data[field]||[]).map(x=>x.id===gId?updated:x)});if(memModal?.id===gId)setMemModal(updated);};
+  const impH=()=>{const h=(data[field]||[]).map(g=>`<h2>${g.nom}</h2><p>${g.fonction||""}</p><table><tr><th>Prénom</th><th>Nom</th><th>Fonction</th></tr>${(g.membres||[]).map(m=>`<tr><td>${m.prenom||""}</td><td>${m.nom||""}</td><td>${m.fonction||""}</td></tr>`).join("")}</table>`).join("");imprimer(title,h||"<p>Aucun</p>",egNom);};
+  return<div>
+    <SH>{title}</SH>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}><BP onClick={impH}/><Btn onClick={openAdd} sm>+ Ajouter</Btn></div>
+    {!(data[field]||[]).length&&<div style={{padding:24,textAlign:"center",color:C.gray}}>Aucun élément</div>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+      {(data[field]||[]).map(g=><Card key={g.id} style={{overflow:"hidden"}}>
+        <div style={{padding:"12px 14px",borderBottom:`1px solid ${C.gold}18`,display:"flex",alignItems:"flex-start",gap:8}}>
+          <div style={{flex:1}}><div style={{fontSize:17,marginBottom:3}}>{icon}</div><div style={{fontWeight:800,fontSize:12,color:C.w}}>{g.nom}</div><div style={{fontSize:9,color:C.gray,marginTop:2}}>{g.fonction}</div></div>
+          <div style={{display:"flex",gap:4,flexShrink:0}}><BEdit onClick={()=>openEdit(g)}/><BDel onClick={()=>del(g.id)}/></div>
+        </div>
+        <div style={{padding:"9px 14px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+            <span style={{fontSize:9,color:C.gold,fontWeight:700}}>{g.membres?.length||0} membre(s)</span>
+            <button onClick={()=>openMemModal(g)} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 9px",background:`${C.ok}14`,border:`1px solid ${C.ok}44`,borderRadius:6,color:C.ok,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit"}}>+ Ajouter membre</button>
+          </div>
+          {(g.membres||[]).map((m,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"3px 0",borderTop:`1px solid ${C.gold}0D`}}>
+            <span style={{fontSize:9,color:C.gray}}>{m.prenom} {m.nom} — <span style={{color:C.gL}}>{m.fonction}</span></span>
+            <div style={{display:"flex",gap:3}}>
+              <button onClick={()=>{setMemModal({...g,membres:[...(g.membres||[])]});setEditM(i);setMf({...m});}} style={{background:"transparent",border:"none",color:C.gold,cursor:"pointer",fontSize:10,padding:"1px 4px"}} title="Modifier">✏</button>
+              <button onClick={()=>delMem(g.id,i)} style={{background:"transparent",border:"none",color:C.err,cursor:"pointer",fontSize:10,padding:"1px 4px"}} title="Supprimer">✕</button>
+            </div>
+          </div>)}
+        </div>
+      </Card>)}
+    </div>
+    {modal&&<Modl title={editG?`Modifier — ${editG.nom}`:`Nouveau — ${title}`} onClose={()=>setModal(false)}>
+      <Inp label="Nom" value={form.nom} onChange={e=>setF(f=>({...f,nom:e.target.value}))}/>
+      <Inp label="Fonction / Objectif" value={form.fonction} onChange={e=>setF(f=>({...f,fonction:e.target.value}))}/>
+      <div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={validerG}>✓ {editG?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div>
+    </Modl>}
+    {memModal&&<Modl title={editM!==null?`Modifier membre — ${memModal.nom}`:`Ajouter membre — ${memModal.nom}`} onClose={()=>{setMemModal(null);setEditM(null);}}>
+      <G2><Inp label="Nom" value={mf.nom} onChange={e=>setMf(p=>({...p,nom:e.target.value}))}/><Inp label="Prénom" value={mf.prenom} onChange={e=>setMf(p=>({...p,prenom:e.target.value}))}/></G2>
+      <Inp label="Fonction dans le groupe" value={mf.fonction} onChange={e=>setMf(p=>({...p,fonction:e.target.value}))} placeholder="ex: Leader, Secrétaire..."/>
+      {(memModal.membres||[]).length>0&&<><div style={{borderTop:`1px solid ${C.gold}22`,margin:"8px 0 10px",paddingTop:10,fontSize:10,color:C.gold,fontWeight:700,letterSpacing:1}}>MEMBRES ACTUELS ({memModal.membres.length})</div>
+        {(memModal.membres||[]).map((m,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 9px",background:editM===i?`${C.gold}14`:`${C.gold}06`,borderRadius:7,marginBottom:4,border:`1px solid ${C.gold}${editM===i?"44":"11"}`}}>
+          <span style={{fontSize:10,color:C.gray}}>{m.prenom} {m.nom} — <span style={{color:C.gL}}>{m.fonction}</span></span>
+          <div style={{display:"flex",gap:4}}>
+            <button onClick={()=>{setEditM(i);setMf({...m});}} style={{background:"transparent",border:"none",color:C.gold,cursor:"pointer",fontSize:10,padding:"1px 5px"}}>✏</button>
+            <button onClick={()=>{const nm=(memModal.membres||[]).filter((_,j)=>j!==i);const updated={...memModal,membres:nm};save({...data,[field]:(data[field]||[]).map(g=>g.id===memModal.id?updated:g)});setMemModal(updated);if(editM===i){setEditM(null);setMf({nom:"",prenom:"",fonction:""});}}} style={{background:"transparent",border:"none",color:C.err,cursor:"pointer",fontSize:10,padding:"1px 5px"}}>✕</button>
+          </div>
+        </div>)}
+      </>}
+      <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+        <Btn onClick={validerMem}>✓ {editM!==null?"MODIFIER":"AJOUTER"}</Btn>
+        {editM!==null&&<Btn onClick={()=>{setEditM(null);setMf({nom:"",prenom:"",fonction:""});}} v="outline">+ Nouveau membre</Btn>}
+        <Btn onClick={()=>{setMemModal(null);setEditM(null);}} v="outline">Fermer</Btn>
+      </div>
+    </Modl>}
+  </div>;
+}
+
+function Personnes({data,save,field,title,extra=[],egNom}){
+  const[modal,setModal]=useState(false);const[edit,setEdit]=useState(null);const[form,setF]=useState({sexe:"Homme"});
+  const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const valider=()=>{if(edit){save({...data,[field]:(data[field]||[]).map(p=>p.id===edit.id?{...form,id:edit.id}:p)});}else{save({...data,[field]:[...(data[field]||[]),{...form,id:uid()}]});}setModal(false);setEdit(null);setF({sexe:"Homme"});};
+  const del=id=>{if(!window.confirm("Supprimer ?"))return;save({...data,[field]:(data[field]||[]).filter(x=>x.id!==id)});};
+  return<div>
+    <SH>{title}</SH>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}><BP onClick={()=>imprimer(title,htmlP(data[field]||[]),egNom)}/><Btn onClick={()=>{setEdit(null);setF({sexe:"Homme"});setModal(true);}} sm>+ Ajouter</Btn></div>
+    <Card style={{overflow:"hidden"}}>
+      {!(data[field]||[]).length&&<div style={{padding:24,textAlign:"center",color:C.gray}}>Aucun enregistrement</div>}
+      {(data[field]||[]).map((p,i)=><div key={p.id} style={{padding:"9px 14px",borderBottom:i<(data[field]||[]).length-1?`1px solid ${C.gold}11`:"none",display:"flex",alignItems:"center",gap:9}}>
+        <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,${C.gD},${C.gold})`,display:"flex",alignItems:"center",justifyContent:"center",color:C.bg,fontWeight:800,fontSize:10,flexShrink:0}}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:11}}>{p.prenom} {p.nom}</div><div style={{fontSize:9,color:C.gray}}>{p.sexe}{p.position?" · "+p.position:""}{p.tel?" · "+p.tel:""}{p.etatCivil?" · "+p.etatCivil:""}</div></div>
+        <div style={{display:"flex",gap:4}}><BEdit onClick={()=>{setEdit(p);setF({...p});setModal(true);}}/><BDel onClick={()=>del(p.id)}/></div>
+      </div>)}
+    </Card>
+    {modal&&<Modl title={edit?`Modifier — ${edit.prenom||""} ${edit.nom||""}`:`Nouveau — ${title}`} onClose={()=>setModal(false)} wide>
+      <G2><Inp label="Nom" value={form.nom} name="nom" onChange={f}/><Inp label="Prénom" value={form.prenom} name="prenom" onChange={f}/></G2>
+      <Sel label="Sexe" value={form.sexe} name="sexe" onChange={f} options={["Homme","Femme"]}/>
+      {extra.map(ef=>ef.type==="select"?<Sel key={ef.key} label={ef.label} value={form[ef.key]} onChange={f(ef.key)} options={ef.opts}/>:<Inp key={ef.key} label={ef.label} value={form[ef.key]} onChange={f(ef.key)} type={ef.type||"text"}/>)}
+      <ChampsC form={form} set={setF}/>
+      <div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={valider}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div>
+    </Modl>}
+  </div>;
+}
+
+function Veuves({data,save,egNom}){
+  const[modal,setModal]=useState(false);const[edit,setEdit]=useState(null);const[form,setF]=useState({sexe:"Femme"});
+  const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const valider=()=>{if(edit){save({...data,veuves:(data.veuves||[]).map(v=>v.id===edit.id?{...form,id:edit.id}:v)});}else{save({...data,veuves:[...(data.veuves||[]),{...form,id:uid()}]});}setModal(false);setEdit(null);setF({sexe:"Femme"});};
+  const del=id=>{if(!window.confirm("Supprimer ?"))return;save({...data,veuves:(data.veuves||[]).filter(x=>x.id!==id)});};
+  return<div>
+    <SH>Veuves / Veufs</SH>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}><BP onClick={()=>imprimer("Veuves/Veufs",htmlP(data.veuves||[]),egNom)}/><Btn onClick={()=>{setEdit(null);setF({sexe:"Femme"});setModal(true);}} sm>+ Ajouter</Btn></div>
+    <Card style={{overflow:"hidden"}}>
+      {!(data.veuves||[]).length&&<div style={{padding:24,textAlign:"center",color:C.gray}}>Aucun enregistrement</div>}
+      {(data.veuves||[]).map((v,i)=><div key={v.id} style={{padding:"9px 14px",borderBottom:i<(data.veuves||[]).length-1?`1px solid ${C.gold}11`:"none",display:"flex",alignItems:"center",gap:9}}>
+        <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,${C.gD},${C.gold})`,display:"flex",alignItems:"center",justifyContent:"center",color:C.bg,fontWeight:800,fontSize:10,flexShrink:0}}>{v.prenom?.[0]}{v.nom?.[0]}</div>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:11}}>{v.prenom} {v.nom}</div><div style={{fontSize:9,color:C.gray}}>{v.sexe} · {v.adresse} · {v.tel||""}</div></div>
+        <span style={{fontSize:9,background:`${C.blue}22`,color:C.blue,padding:"2px 8px",borderRadius:20}}>{v.sexe==="Femme"?"VEUVE":"VEUF"}</span>
+        <div style={{display:"flex",gap:4}}><BEdit onClick={()=>{setEdit(v);setF({...v});setModal(true);}}/><BDel onClick={()=>del(v.id)}/></div>
+      </div>)}
+    </Card>
+    {modal&&<Modl title={edit?"Modifier Veuve/Veuf":"Nouveau — Veuve / Veuf"} onClose={()=>setModal(false)} wide>
+      <G2><Inp label="Nom" value={form.nom} name="nom" onChange={f}/><Inp label="Prénom" value={form.prenom} name="prenom" onChange={f}/></G2>
+      <G2><Sel label="Sexe" value={form.sexe} name="sexe" onChange={f} options={["Femme","Homme"]}/><Inp label="Date de naissance" value={form.dateNaiss} name="dateNaiss" onChange={f} type="date"/></G2>
+      <Inp label="Adresse" value={form.adresse} name="adresse" onChange={f}/>
+      <div style={{borderTop:`1px solid ${C.gold}22`,margin:"6px 0 10px",paddingTop:10,fontSize:10,color:C.gold,fontWeight:700,letterSpacing:1}}>INFORMATIONS ECCLÉSIASTIQUES</div>
+      <G2><Inp label="Date de conversion" value={form.dateConv} name="dateConv" onChange={f} type="date"/><Inp label="Date de baptême" value={form.dateBapt} name="dateBapt" onChange={f} type="date"/></G2>
+      <Sel label="Position" value={form.position} name="position" onChange={f} options={POSIT}/>
+      <G2><Inp label="Groupe" value={form.groupe} name="groupe" onChange={f}/><Inp label="Ministère" value={form.ministere} name="ministere" onChange={f}/></G2>
+      <ChampsC form={form} set={setF}/>
+      <div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={valider}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div>
+    </Modl>}
+  </div>;
+}
+
+function Activites({data,save,egNom}){
+  const[sub,setSub]=useState("presentations");const[modal,setModal]=useState(false);const[edit,setEdit]=useState(null);const[form,setF]=useState({});
+  const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const TABS=[{k:"presentations",l:"🍼 Présentations"},{k:"baptemes",l:"💧 Baptêmes"},{k:"evangelisations",l:"📢 Évangélisation"},{k:"missions",l:"🌍 Missions"},{k:"mariages",l:"💍 Mariages"},{k:"reveils",l:"🔥 Réveils"},{k:"enterrements",l:"🕊 Enterrements"}];
+  const FLD={presentations:[{k:"date",l:"Date",t:"date"},{k:"nom",l:"Nom"},{k:"prenom",l:"Prénom"},{k:"dateNaiss",l:"Naissance",t:"date"},{k:"parents",l:"Parents"},{k:"parrain",l:"Parrain"},{k:"marraine",l:"Marraine"}],baptemes:[{k:"date",l:"Date",t:"date"},{k:"nom",l:"Nom"},{k:"prenom",l:"Prénom"},{k:"lieu",l:"Lieu"},{k:"pasteur",l:"Pasteur"}],evangelisations:[{k:"date",l:"Date",t:"date"},{k:"lieu",l:"Lieu"},{k:"participants",l:"Participants",t:"number"},{k:"conversions",l:"Conversions",t:"number"}],missions:[{k:"date",l:"Date",t:"date"},{k:"lieu",l:"Lieu"},{k:"participants",l:"Participants",t:"number"},{k:"conversions",l:"Conversions",t:"number"}],mariages:[{k:"date",l:"Date",t:"date"},{k:"nomFille",l:"Mariée"},{k:"nomGarcon",l:"Marié"},{k:"lieu",l:"Lieu"}],reveils:[{k:"dateLancement",l:"Lancement",t:"date"},{k:"dateCloture",l:"Clôture",t:"date"}],enterrements:[{k:"date",l:"Date",t:"date"},{k:"nom",l:"Nom"},{k:"prenom",l:"Prénom"},{k:"position",l:"Position"}]};
+  const list=((data.activites||{})[sub]||[]);
+  const valider=()=>{const item={...form,id:edit?edit.id:uid()};const act={...data.activites,[sub]:edit?list.map(x=>x.id===edit.id?item:x):[...list,item]};save({...data,activites:act});setModal(false);setEdit(null);setF({});};
+  const del=id=>{if(!window.confirm("Supprimer ?"))return;const act={...data.activites,[sub]:list.filter(x=>x.id!==id)};save({...data,activites:act});};
+  return<div>
+    <SH>Activités</SH>
+    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:11}}>
+      {TABS.map(t=><button key={t.k} onClick={()=>setSub(t.k)} style={{padding:"5px 10px",borderRadius:8,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"Georgia,serif",background:sub===t.k?`linear-gradient(135deg,${C.gD},${C.gold})`:"transparent",color:sub===t.k?C.bg:C.gray,border:sub===t.k?"none":`1px solid ${C.gray}33`}}>{t.l}</button>)}
+      <div style={{flex:1}}/><BP onClick={()=>{const h=list.length?`<table><tr>${Object.keys(list[0]).filter(k=>k!=="id").map(k=>`<th>${k}</th>`).join("")}</tr>${list.map(x=>`<tr>${Object.entries(x).filter(([k])=>k!=="id").map(([,v])=>`<td>${v||""}</td>`).join("")}</tr>`).join("")}</table>`:"<p>Aucun</p>";imprimer(TABS.find(t=>t.k===sub)?.l||sub,h,egNom);}}/><Btn onClick={()=>{setEdit(null);setF({});setModal(true);}} sm>+ Ajouter</Btn>
+    </div>
+    <Card style={{overflow:"hidden"}}>
+      {list.length===0&&<div style={{padding:24,textAlign:"center",color:C.gray}}>Aucune activité</div>}
+      {list.map((item,i)=><div key={item.id||i} style={{padding:"8px 12px",borderBottom:`1px solid ${C.gold}11`,display:"flex",flexWrap:"wrap",gap:7,alignItems:"center"}}>
+        <div style={{background:`${C.gold}18`,borderRadius:7,padding:"3px 8px",fontSize:9,color:C.gold,fontWeight:700,flexShrink:0}}>{item.date||item.dateLancement}</div>
+        {Object.entries(item).filter(([k])=>!["id","date","dateLancement"].includes(k)).map(([k,v])=><div key={k} style={{fontSize:10}}><span style={{color:C.gray,fontSize:8,marginRight:2}}>{k}:</span><span>{v}</span></div>)}
+        <div style={{marginLeft:"auto",display:"flex",gap:4}}><BEdit onClick={()=>{setEdit(item);setF({...item});setModal(true);}}/><BDel onClick={()=>del(item.id)}/></div>
+      </div>)}
+    </Card>
+    {modal&&<Modl title={edit?`Modifier — ${TABS.find(t=>t.k===sub)?.l}`:`Nouvelle — ${TABS.find(t=>t.k===sub)?.l}`} onClose={()=>setModal(false)}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
+        {(FLD[sub]||[]).map(fd=><div key={fd.k} style={{gridColumn:["parents","lieu","pasteur","nomFille","nomGarcon"].includes(fd.k)?"span 2":"span 1"}}><Inp label={fd.l} value={form[fd.k]} onChange={f(fd.k)} type={fd.t||"text"}/></div>)}
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={valider}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div>
+    </Modl>}
+  </div>;
+}
+
+function Services({data,save,egNom}){
+  const[modal,setModal]=useState(false);const[edit,setEdit]=useState(null);const[form,setF]=useState({});
+  const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const valider=()=>{if(edit){save({...data,services:(data.services||[]).map(s=>s.id===edit.id?{...form,id:edit.id}:s)});}else{save({...data,services:[...(data.services||[]),{...form,id:uid()}]});}setModal(false);setEdit(null);setF({});};
+  const del=id=>{if(!window.confirm("Supprimer ?"))return;save({...data,services:(data.services||[]).filter(s=>s.id!==id)});};
+  return<div>
+    <SH>Services de l'Église</SH>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}><BP onClick={()=>{const h=`<table><tr><th>Type</th><th>Jour</th><th>Début</th><th>Fin</th></tr>${(data.services||[]).map(s=>`<tr><td>${s.type}</td><td>${s.jour}</td><td>${s.heureLancement}</td><td>${s.heureCloture}</td></tr>`).join("")}</table>`;imprimer("Services",h,egNom);}}/><Btn onClick={()=>{setEdit(null);setF({});setModal(true);}} sm>+ Ajouter</Btn></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(195px,1fr))",gap:11}}>
+      {(data.services||[]).map(s=><Card key={s.id} style={{padding:14}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:7}}>
+          <div style={{flex:1}}><div style={{fontSize:17,marginBottom:4}}>🕊</div><div style={{fontWeight:800,fontSize:12,color:C.w}}>{s.type}</div><div style={{fontSize:10,color:C.gold,marginTop:3}}>{s.jour}</div><div style={{fontSize:9,color:C.gray}}>{s.heureLancement} – {s.heureCloture}</div></div>
+          <div style={{display:"flex",flexDirection:"column",gap:3}}><BEdit onClick={()=>{setEdit(s);setF({...s});setModal(true);}}/><BDel onClick={()=>del(s.id)}/></div>
+        </div>
+      </Card>)}
+    </div>
+    {!(data.services||[]).length&&<div style={{padding:24,textAlign:"center",color:C.gray}}>Aucun service</div>}
+    {modal&&<Modl title={edit?"Modifier Service":"Nouveau Service"} onClose={()=>setModal(false)}><Sel label="Jour" value={form.jour} name="jour" onChange={f} options={JOURS}/><Sel label="Type" value={form.type} name="type" onChange={f} options={SRVT}/><G2><Inp label="Heure de début" value={form.heureLancement} name="heureLancement" onChange={f} type="time"/><Inp label="Heure de fin" value={form.heureCloture} name="heureCloture" onChange={f} type="time"/></G2><div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={valider}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div></Modl>}
+  </div>;
+}
+
+function Finances({data,save,egNom}){
+  const[tab,setTab]=useState("entrees");const[modal,setModal]=useState(false);const[edit,setEdit]=useState(null);const[form,setF]=useState({});
+  const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const{e,d}=finTot(data);
+  const validerE=()=>{const item={mois:form.mois,dimes:+form.dimes||0,offrandes:+form.offrandes||0,dons:+form.dons||0,id:edit?edit.id:uid()};const ne=edit?(data.finances?.entrees||[]).map(x=>x.id===edit.id?item:x):[...(data.finances?.entrees||[]),item];save({...data,finances:{...data.finances,entrees:ne}});setModal(false);setEdit(null);setF({});};
+  const validerD=()=>{const item={...form,montant:+form.montant||0,id:edit?edit.id:uid()};const nd=edit?(data.finances?.depenses||[]).map(x=>x.id===edit.id?item:x):[...(data.finances?.depenses||[]),item];save({...data,finances:{...data.finances,depenses:nd}});setModal(false);setEdit(null);setF({});};
+  const delE=id=>{if(!window.confirm("Supprimer ?"))return;save({...data,finances:{...data.finances,entrees:(data.finances?.entrees||[]).filter(x=>x.id!==id)}});};
+  const delD=id=>{if(!window.confirm("Supprimer ?"))return;save({...data,finances:{...data.finances,depenses:(data.finances?.depenses||[]).filter(x=>x.id!==id)}});};
+  return<div>
+    <SH>Rapport Financier</SH>
+    <div style={{display:"flex",gap:9,marginBottom:12,flexWrap:"wrap"}}><SB label="Entrées" value={gH(e)} icon="📈" color={C.ok}/><SB label="Dépenses" value={gH(d)} icon="📉" color={C.err}/><SB label="Solde" value={gH(e-d)} icon="💰"/></div>
+    <div style={{display:"flex",gap:7,marginBottom:10,alignItems:"center"}}>
+      {[["entrees","💚 Entrées"],["depenses","🔴 Dépenses"]].map(([t,l])=><button key={t} onClick={()=>setTab(t)} style={{padding:"6px 13px",borderRadius:8,fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",background:tab===t?`linear-gradient(135deg,${C.gD},${C.gold})`:"transparent",color:tab===t?C.bg:C.gray,border:tab===t?"none":`1px solid ${C.gray}33`}}>{l}</button>)}
+      <div style={{flex:1}}/><BP onClick={()=>imprimer("Rapport Financier",htmlF(data.finances),egNom)}/><Btn onClick={()=>{setEdit(null);setF({});setModal(true);}} sm>+ Ajouter</Btn>
+    </div>
+    {tab==="entrees"&&<Card style={{overflow:"hidden"}}><div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 65px",padding:"7px 12px",borderBottom:`1px solid ${C.gold}22`,fontSize:9,color:C.gray,fontWeight:700,letterSpacing:1.3}}><span>MOIS</span><span>DÎMES</span><span>OFFRANDES</span><span>DONS</span><span>TOTAL</span><span>ACTIONS</span></div>
+      {(data.finances?.entrees||[]).map((en,i)=><div key={en.id||i} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 65px",padding:"8px 12px",borderBottom:`1px solid ${C.gold}09`,fontSize:10,alignItems:"center"}}><span style={{fontWeight:700}}>{en.mois}</span><span>{gH(+en.dimes)}</span><span>{gH(+en.offrandes)}</span><span>{gH(+en.dons)}</span><span style={{color:C.gold,fontWeight:700}}>{gH((+en.dimes||0)+(+en.offrandes||0)+(+en.dons||0))}</span><div style={{display:"flex",gap:3}}><BEdit onClick={()=>{setEdit(en);setF({...en});setModal(true);}}/><BDel onClick={()=>delE(en.id)}/></div></div>)}
+      {!(data.finances?.entrees||[]).length&&<div style={{padding:16,textAlign:"center",color:C.gray,fontSize:11}}>Aucune entrée</div>}
+    </Card>}
+    {tab==="depenses"&&<Card style={{overflow:"hidden"}}><div style={{display:"grid",gridTemplateColumns:"1.5fr 3fr 1fr 65px",padding:"7px 12px",borderBottom:`1px solid ${C.gold}22`,fontSize:9,color:C.gray,fontWeight:700,letterSpacing:1.3}}><span>DATE</span><span>DESCRIPTION</span><span>MONTANT</span><span>ACTIONS</span></div>
+      {(data.finances?.depenses||[]).map((dep,i)=><div key={dep.id||i} style={{display:"grid",gridTemplateColumns:"1.5fr 3fr 1fr 65px",padding:"8px 12px",borderBottom:`1px solid ${C.gold}09`,fontSize:10,alignItems:"center"}}><span style={{color:C.gold}}>{dep.date}</span><span>{dep.description}</span><span style={{color:C.err,fontWeight:700}}>{gH(+dep.montant||0)}</span><div style={{display:"flex",gap:3}}><BEdit onClick={()=>{setEdit(dep);setF({...dep});setModal(true);}}/><BDel onClick={()=>delD(dep.id)}/></div></div>)}
+      {!(data.finances?.depenses||[]).length&&<div style={{padding:16,textAlign:"center",color:C.gray,fontSize:11}}>Aucune dépense</div>}
+    </Card>}
+    {modal&&<Modl title={tab==="entrees"?(edit?"Modifier Entrée":"Nouvelle Entrée"):(edit?"Modifier Dépense":"Nouvelle Dépense")} onClose={()=>setModal(false)}>
+      {tab==="entrees"?<><Inp label="Mois" value={form.mois} name="mois" onChange={f} placeholder="ex: Avril 2025"/><G3><Inp label="Dîmes (G)" value={form.dimes} name="dimes" onChange={f} type="number"/><Inp label="Offrandes (G)" value={form.offrandes} name="offrandes" onChange={f} type="number"/><Inp label="Dons (G)" value={form.dons} name="dons" onChange={f} type="number"/></G3><div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={validerE}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div></>
+      :<><Inp label="Date" value={form.date} name="date" onChange={f} type="date"/><Inp label="Description" value={form.description} name="description" onChange={f}/><Inp label="Montant (G)" value={form.montant} name="montant" onChange={f} type="number"/><div style={{display:"flex",gap:8,marginTop:10}}><Btn onClick={validerD}>✓ {edit?"MODIFIER":"ENREGISTRER"}</Btn><Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn></div></>}
+    </Modl>}
+  </div>;
+}
+
+function Localisation({data,save}){
+  const[form,setF]=useState(data.localisation||{adresse:"",coordonnees:"",lienMaps:""});
+  const f=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const go=()=>save({...data,localisation:form});
+  return<div><SH>Localisation GPS</SH>
+    <Card style={{padding:18,marginBottom:13}}><Inp label="Adresse complète" value={form.adresse} name="adresse" onChange={f} placeholder="ex: Rue X, Quartier Y, Port-au-Prince"/><Inp label="Coordonnées GPS" value={form.coordonnees} name="coordonnees" onChange={f} placeholder="ex: 18.5432, -72.3388"/><Inp label="Lien Google Maps" value={form.lienMaps} onChange={f("lienMaps")} placeholder="https://maps.google.com/..."/>
+    <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}22`,borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:10,color:C.gray,lineHeight:1.7}}>📱 <strong style={{color:C.gL2}}>Comment obtenir les coordonnées GPS :</strong><br/>Ouvrez Google Maps → Maintenez appuyé sur l'emplacement → Copiez les coordonnées (ex: 18.5432, -72.3388)</div>
+    <div style={{display:"flex",gap:8}}><Btn onClick={go}>💾 Sauvegarder</Btn>{(form.coordonnees||form.lienMaps)&&<Btn onClick={()=>window.open(`https://www.google.com/maps?q=${encodeURIComponent(form.coordonnees||form.lienMaps)}`,"_blank")} v="blue">🗺 Voir sur Maps</Btn>}</div>
+    </Card>
+  </div>;
+}
+
+function DashEg({data,egNom,online,save}){
+  const m=data.membres||[];const{e,d}=finTot(data);
+  const imp=()=>{const h=`<table><tr><th>Indicateur</th><th>Valeur</th></tr><tr><td>Total membres</td><td>${m.length}</td></tr><tr><td>Baptisés</td><td>${m.filter(x=>x.type==="baptise").length}</td></tr><tr><td>Non baptisés</td><td>${m.filter(x=>x.type==="non-baptise").length}</td></tr><tr><td>Conversions</td><td>${data.conversions?.length||0}</td></tr><tr><td>Groupes</td><td>${data.groupes?.length||0}</td></tr><tr><td>Ministères</td><td>${data.ministeres?.length||0}</td></tr><tr><td>Entrées</td><td>${gH(e)}</td></tr><tr><td>Dépenses</td><td>${gH(d)}</td></tr><tr><td>Solde</td><td>${gH(e-d)}</td></tr></table>`;imprimer("Tableau de Bord",h,egNom);};
+  return<div>
+    <div style={{background:`linear-gradient(135deg,${C.bg3},${C.bg4})`,border:`1px solid ${C.gold}33`,borderRadius:14,padding:"15px 19px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+      <div style={{flex:1}}><div style={{fontSize:9,color:C.gray,letterSpacing:3,marginBottom:3}}>✝ SYSTÈME DE GESTION</div><div style={{fontSize:16,fontWeight:800,color:C.gold,letterSpacing:2}}>{egNom}</div><div style={{fontSize:9,color:C.gray,fontStyle:"italic",marginTop:3}}>{VERSET}</div></div>
+      <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}><CB online={online}/><BP onClick={imp}/></div>
+    </div>
+    <div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:10}}><SB label="Membres" value={m.length} icon="👥"/><SB label="Baptisés" value={m.filter(x=>x.type==="baptise").length} icon="✝"/><SB label="Non baptisés" value={m.filter(x=>x.type==="non-baptise").length} icon="◌" color={C.blue}/><SB label="Conversions" value={data.conversions?.length||0} icon="🙏" color={C.ok}/></div>
+    <div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:10}}><SB label="Ministères" value={data.ministeres?.length||0} icon="🎵"/><SB label="Groupes" value={data.groupes?.length||0} icon="⬡"/><SB label="Pasteurs" value={data.pasteurs?.length||0} icon="📖"/><SB label="Diacres" value={data.diacres?.length||0} icon="🕊"/><SB label="Veuves/Veufs" value={data.veuves?.length||0} icon="🤍" color={C.blue}/></div>
+    <div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:13}}><SB label="Entrées" value={gH(e)} icon="📈" color={C.ok}/><SB label="Dépenses" value={gH(d)} icon="📉" color={C.err}/><SB label="Solde" value={gH(e-d)} icon="💰"/></div>
+    {data.localisation?.coordonnees&&<Card style={{padding:12,marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{fontSize:17}}>📍</div><div style={{flex:1}}><div style={{fontWeight:700,fontSize:11,color:C.w}}>{data.localisation.adresse||"Localisation enregistrée"}</div><div style={{fontSize:9,color:C.ok}}>GPS : {data.localisation.coordonnees}</div></div><button onClick={()=>window.open(`https://www.google.com/maps?q=${encodeURIComponent(data.localisation.coordonnees)}`,"_blank")} style={{padding:"5px 10px",background:`${C.blue}18`,border:`1px solid ${C.blue}44`,borderRadius:7,color:C.blue,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit"}}>🗺 Maps</button></div></Card>}
+    <Card style={{padding:14}}><div style={{fontSize:11,fontWeight:800,color:C.gold,marginBottom:9}}>📅 Services</div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:8}}>{(data.services||[]).map((s,i)=><div key={i} style={{background:`${C.gold}0A`,border:`1px solid ${C.gold}22`,borderRadius:8,padding:"8px 11px"}}><div style={{fontWeight:700,fontSize:11}}>{s.type}</div><div style={{fontSize:9,color:C.gold,marginTop:3}}>{s.jour} · {s.heureLancement}–{s.heureCloture}</div></div>)}{!data.services?.length&&<div style={{color:C.gray,fontSize:10}}>Aucun service</div>}</div></Card>
+  </div>;
+}
+
+const NAV_EG=[{id:"dashboard",l:"Tableau de Bord",ic:"◈"},{id:"membres",l:"Membres",ic:"👥"},{id:"conversions",l:"Conversions",ic:"🙏"},{id:"comites",l:"Comités",ic:"📋"},{id:"ministeres",l:"Ministères",ic:"🎵"},{id:"groupes",l:"Groupes",ic:"⬡"},{id:"diacres",l:"Diacres",ic:"🕊"},{id:"pasteurs",l:"Pasteurs",ic:"📖"},{id:"veuves",l:"Veuves / Veufs",ic:"🤍"},{id:"activites",l:"Activités",ic:"⚡"},{id:"services",l:"Services",ic:"📅"},{id:"finances",l:"Finances",ic:"💰"},{id:"localisation",l:"Localisation GPS",ic:"📍"}];
+
+function SystEglise({egId,egNom,onBack,showCP}){
+  const{data,save,online}=useEgData(egId);
+  const[page,setPage]=useState("dashboard");const[mob,setMob]=useState(window.innerWidth<700);const[menu,setMenu]=useState(false);const[cp,setCp]=useState(false);
+  useEffect(()=>{const h=()=>setMob(window.innerWidth<700);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
+  if(!data)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",color:C.gray,flexDirection:"column",gap:10}}><div style={{width:16,height:16,border:`2px solid ${C.gold}`,borderTopColor:"transparent",borderRadius:"50%"}} className="spin"/><div style={{fontSize:12}}>Chargement...</div></div>;
+  const go=id=>{setPage(id);if(mob)setMenu(false);};
+  return<div style={{display:"flex",height:"100vh",background:C.bg,fontFamily:"Georgia,'Times New Roman',serif",color:C.w,overflow:"hidden"}}>
+    {mob&&menu&&<div onClick={()=>setMenu(false)} style={{position:"fixed",inset:0,zIndex:150,background:"rgba(0,0,0,.75)"}}/>}
+    <div style={{width:mob?(menu?235:0):208,flexShrink:0,transition:"width .25s",background:`linear-gradient(180deg,${C.bg2},#050C14)`,borderRight:`1px solid ${C.gold}22`,display:"flex",flexDirection:"column",overflow:"hidden",position:mob?"fixed":"relative",height:"100%",zIndex:160}}>
+      <div style={{padding:"14px 11px 9px",borderBottom:`1px solid ${C.gold}22`,textAlign:"center"}}>
+        <svg width="19" height="19" viewBox="0 0 19 19" fill="none" style={{marginBottom:3}}><rect x="7" y="2" width="5" height="15" rx="2.5" fill={C.gold}/><rect x="2" y="7" width="15" height="5" rx="2.5" fill={C.gold}/></svg>
+        <div style={{fontSize:8,color:C.gray,letterSpacing:2,marginBottom:2}}>LES ÉGLISES DE DIEU</div>
+        <div style={{fontSize:10,fontWeight:800,color:C.gold,lineHeight:1.3,marginBottom:5}}>{egNom}</div>
+        <CB online={online}/>
+      </div>
+      <nav style={{flex:1,overflowY:"auto",padding:"4px 4px"}}>
+        {NAV_EG.map(n=><button key={n.id} onClick={()=>go(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:6,padding:"6px 8px",marginBottom:1,background:page===n.id?`${C.gold}18`:"transparent",border:page===n.id?`1px solid ${C.gold}44`:"1px solid transparent",borderRadius:7,color:page===n.id?C.gold:C.gray,cursor:"pointer",fontSize:10,fontWeight:page===n.id?700:400,fontFamily:"inherit",textAlign:"left"}}><span style={{fontSize:10,flexShrink:0}}>{n.ic}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.l}</span></button>)}
+      </nav>
+      <div style={{padding:"4px 4px",borderTop:`1px solid ${C.gold}11`}}>
+        {showCP&&<button onClick={()=>setCp(true)} style={{width:"100%",padding:"5px 8px",marginBottom:3,borderRadius:7,background:"transparent",border:`1px solid ${C.gold}33`,color:C.gold,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>🔑 Changer mot de passe</button>}
+        <button onClick={onBack} style={{width:"100%",padding:"6px",borderRadius:7,background:"transparent",border:`1px solid ${C.err}44`,color:C.err,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>🚪 Se déconnecter</button>
+      </div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}}>
+      {mob&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 11px",borderBottom:`1px solid ${C.gold}22`,background:C.bg2,flexShrink:0}}><button onClick={()=>setMenu(o=>!o)} style={{background:"transparent",border:"none",color:C.gold,fontSize:17,cursor:"pointer"}}>☰</button><div style={{fontSize:10,fontWeight:800,color:C.gold,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{egNom}</div><CB online={online}/></div>}
+      <div style={{flex:1,padding:mob?"10px":"18px",overflowY:"auto"}}>
+        {page==="dashboard"  &&<DashEg data={data} egNom={egNom} online={online} save={save}/>}
+        {page==="membres"    &&<Membres data={data} save={save} egNom={egNom}/>}
+        {page==="conversions"&&<Conversions data={data} save={save} egNom={egNom}/>}
+        {page==="comites"    &&<GroupLike data={data} save={save} field="comites" title="Comités" icon="📋" egNom={egNom}/>}
+        {page==="ministeres" &&<GroupLike data={data} save={save} field="ministeres" title="Ministères" icon="🎵" egNom={egNom}/>}
+        {page==="groupes"    &&<GroupLike data={data} save={save} field="groupes" title="Groupes" icon="⬡" egNom={egNom}/>}
+        {page==="diacres"    &&<Personnes data={data} save={save} field="diacres" title="Diacres" egNom={egNom}/>}
+        {page==="pasteurs"   &&<Personnes data={data} save={save} field="pasteurs" title="Pasteurs" extra={[{key:"position",label:"Position",type:"select",opts:["Pasteur Titulaire","Pasteur Adjoint","Pasteur Associé","Évangéliste"]}]} egNom={egNom}/>}
+        {page==="veuves"     &&<Veuves data={data} save={save} egNom={egNom}/>}
+        {page==="activites"  &&<Activites data={data} save={save} egNom={egNom}/>}
+        {page==="services"   &&<Services data={data} save={save} egNom={egNom}/>}
+        {page==="finances"   &&<Finances data={data} save={save} egNom={egNom}/>}
+        {page==="localisation"&&<Localisation data={data} save={save}/>}
+      </div>
+    </div>
+    {cp&&<ChgPass actuel="" onSave={()=>{}} onClose={()=>setCp(false)}/>}
+  </div>;
+}
+
+function Parametres({cfg,saveCfg,setLienModal,allData}){
+  const[tab,setTab]=useState("general");const[notif,setNotif]=useState(cfg.parametres?.notifications||{email:false,whatsapp:false,emailAddr:""});const[saved,setSaved]=useState(false);
+  const saveNotif=async()=>{const nc={...cfg,parametres:{...cfg.parametres,notifications:notif}};await saveCfg(nc);setSaved(true);setTimeout(()=>setSaved(false),2000);};
+  const TABS=[{k:"general",l:"⚙ Général"},{k:"eglises",l:"⛪ Églises"},{k:"contacts",l:"📞 Contacts"},{k:"notif",l:"🔔 Notifications"},{k:"securite",l:"🔐 Sécurité"},{k:"systeme",l:"🛠 Système"}];
+  return<div>
+    <SH>⚙ Paramètres du Système</SH>
+    <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:16}}>
+      {TABS.map(t=><button key={t.k} onClick={()=>setTab(t.k)} style={{padding:"6px 13px",borderRadius:8,fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif",background:tab===t.k?`linear-gradient(135deg,${C.gD},${C.gold})`:"transparent",color:tab===t.k?C.bg:C.gray,border:tab===t.k?"none":`1px solid ${C.gray}33`}}>{t.l}</button>)}
+    </div>
+    {tab==="general"&&<div style={{display:"grid",gap:12}}>
+      <Card style={{padding:18}}><div style={{fontSize:12,fontWeight:800,color:C.gold,marginBottom:12}}>ℹ Informations du Système</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>{[["Version","v"+VER],["Nom","Les Églises Salem"],["Cloud","Firebase Realtime DB"],["Mot de passe mère",cfg.password],["Nombre d'églises",cfg.eglises.length],["Total membres",allData.reduce((s,d)=>s+(d?.membres?.length||0),0)]].map(([k,v])=><div key={k} style={{background:`${C.gold}08`,border:`1px solid ${C.gold}16`,borderRadius:8,padding:"10px 12px"}}><div style={{fontSize:8,color:C.gray,marginBottom:2,letterSpacing:1}}>{k.toUpperCase()}</div><div style={{fontSize:11,fontWeight:700,color:C.w}}>{v}</div></div>)}</div>
+      </Card>
+      <Card style={{padding:18}}><div style={{fontSize:12,fontWeight:800,color:C.gold,marginBottom:10}}>🔄 Mise à jour</div>
+        <div style={{fontSize:10,color:C.gray,lineHeight:1.7,marginBottom:11}}>Version actuelle : <strong style={{color:C.gold}}>v{VER}</strong>. Pour mettre à jour, téléchargez le nouveau fichier HTML et remplacez l'ancien. Toutes vos données restent dans Firebase Cloud.</div>
+        <Btn onClick={()=>alert("✅ Vous êtes sur la dernière version v"+VER+"\n\nContactez le développeur pour les mises à jour.")} v="green">🔄 Vérifier les mises à jour</Btn>
+      </Card>
+    </div>}
+    {tab==="eglises"&&<div style={{display:"grid",gap:12}}>
+      <Card style={{padding:18}}><div style={{fontSize:12,fontWeight:800,color:C.gold,marginBottom:12}}>⛪ Gestion rapide des Églises</div>
+        {cfg.eglises.length===0&&<div style={{color:C.gray,textAlign:"center",padding:18,fontSize:11}}>Aucune église enregistrée</div>}
+        {cfg.eglises.map((eg,i)=><div key={eg.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<cfg.eglises.length-1?`1px solid ${C.gold}11`:"none"}}>
+          {eg.photo?<img src={eg.photo} alt="" style={{width:32,height:32,borderRadius:7,objectFit:"cover"}}/>:<div style={{width:32,height:32,borderRadius:7,background:`linear-gradient(135deg,${C.gD},${C.gold})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>⛪</div>}
+          <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:11,color:C.gold,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{eg.nom}</div><div style={{fontSize:9,color:C.gray}}>{eg.ville} · Code: <span style={{color:C.gold,fontWeight:700}}>{eg.password}</span></div><div style={{fontSize:9,color:allData[i]?.membres?.length?C.ok:C.gray}}>{allData[i]?.membres?.length||0} membre(s)</div></div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            <Btn onClick={()=>setLienModal(eg)} v="blue" sm>🔗 Lien</Btn>
+            <Btn onClick={()=>{const pass=prompt("Nouveau code pour "+eg.nom+" :");if(!pass||pass.length<4)return;saveCfg({...cfg,eglises:cfg.eglises.map(e=>e.id===eg.id?{...e,password:pass}:e)});}} v="orange" sm>🔑 Code</Btn>
+          </div>
+        </div>)}
+      </Card>
+      <Card style={{padding:18}}><div style={{fontSize:12,fontWeight:800,color:C.gold,marginBottom:10}}>🆘 Résolution de problèmes</div>
+        <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}22`,borderRadius:9,padding:"12px 14px"}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:7}}>💡 Problèmes fréquents & Solutions</div>
+          {[["Responsable ne peut pas se connecter","Vérifiez le code d'accès dans Gestion des Églises et renvoyez le lien"],["Les données ne s'affichent pas","Le responsable doit avoir une connexion internet active pour la 1ère synchronisation"],["Le lien ne fonctionne pas","Le site doit être hébergé en ligne (Netlify/GitHub Pages)"],["Données perdues hors ligne","Dès reconnexion internet, les données se synchronisent automatiquement"]].map(([p,s])=><div key={p} style={{marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${C.blue}18`}}><div style={{fontSize:10,fontWeight:700,color:C.gL2}}>❓ {p}</div><div style={{fontSize:9,color:C.gray,marginTop:2}}>✅ {s}</div></div>)}
+        </div>
+      </Card>
+    </div>}
+    {tab==="contacts"&&<Card style={{padding:18}}><div style={{fontSize:12,fontWeight:800,color:C.gold,marginBottom:12}}>📞 Contacts des Responsables</div>
+      {cfg.eglises.length===0&&<div style={{color:C.gray,textAlign:"center",padding:18,fontSize:11}}>Aucune église</div>}
+      <div style={{display:"grid",gap:10}}>
+        {cfg.eglises.map(eg=><div key={eg.id} style={{background:`${C.gold}08`,border:`1px solid ${C.gold}22`,borderRadius:10,padding:"12px 14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:8}}>
+            {eg.photo?<img src={eg.photo} alt="" style={{width:34,height:34,borderRadius:7,objectFit:"cover",flexShrink:0}}/>:<div style={{width:34,height:34,borderRadius:7,background:`linear-gradient(135deg,${C.gD},${C.gold})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>⛪</div>}
+            <div><div style={{fontWeight:800,fontSize:12,color:C.gold}}>{eg.nom}</div><div style={{fontSize:9,color:C.gray}}>{eg.ville||"—"}</div></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[["👤 Responsable",eg.responsable||"Non renseigné"],["📞 Contact",eg.contact||"Non renseigné"],["📱 Téléphone",eg.telephone||"Non renseigné"],["📧 Email",eg.email||"Non renseigné"]].map(([l,v])=><div key={l} style={{background:C.bg,borderRadius:7,padding:"6px 9px"}}><div style={{fontSize:8,color:C.gray}}>{l}</div><div style={{fontSize:10,fontWeight:700,color:C.w}}>{v}</div></div>)}
+          </div>
+          {eg.contact&&<div style={{marginTop:8,display:"flex",gap:6}}>
+            <button onClick={()=>window.open(`https://wa.me/${eg.contact.replace(/[^0-9]/g,"")}`,"_blank")} style={{padding:"5px 10px",background:"#25D36618",border:"1px solid #25D36644",borderRadius:7,color:"#25D366",cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit"}}>💬 WhatsApp</button>
+            {eg.email&&<button onClick={()=>window.open(`mailto:${eg.email}`,"_blank")} style={{padding:"5px 10px",background:`${C.blue}18`,border:`1px solid ${C.blue}44`,borderRadius:7,color:C.blue,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit"}}>📧 Email</button>}
+          </div>}
+        </div>)}
+      </div>
+      <div style={{marginTop:14}}><BP onClick={()=>{const h=`<table><tr><th>Église</th><th>Responsable</th><th>Contact</th><th>Téléphone</th><th>Email</th><th>Ville</th></tr>${cfg.eglises.map(eg=>`<tr><td>${eg.nom}</td><td>${eg.responsable||""}</td><td>${eg.contact||""}</td><td>${eg.telephone||""}</td><td>${eg.email||""}</td><td>${eg.ville||""}</td></tr>`).join("")}</table>`;imprimer("Contacts des Responsables",h,"Les Églises Salem");}}/></div>
+    </Card>}
+    {tab==="notif"&&<Card style={{padding:18}}><div style={{fontSize:12,fontWeight:800,color:C.gold,marginBottom:12}}>🔔 Notifications</div>
+      <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}22`,borderRadius:9,padding:"10px 13px",marginBottom:14,fontSize:10,color:C.gray,lineHeight:1.7}}>💡 Configurez vos préférences de notification.</div>
+      <div style={{display:"grid",gap:10}}>
+        {[["Notifications Email","Recevoir un résumé hebdomadaire par email",notif.email,v=>setNotif(p=>({...p,email:v}))],["Notifications WhatsApp","Recevoir des alertes sur WhatsApp",notif.whatsapp,v=>setNotif(p=>({...p,whatsapp:v}))]].map(([l,d,v,set])=><div key={l} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:`${C.gold}08`,border:`1px solid ${C.gold}22`,borderRadius:10}}>
+          <div><div style={{fontWeight:700,fontSize:11,color:C.w}}>{l}</div><div style={{fontSize:9,color:C.gray,marginTop:2}}>{d}</div></div>
+          <div onClick={()=>set(!v)} style={{width:40,height:22,borderRadius:11,background:v?C.gold:C.bg4,cursor:"pointer",position:"relative",transition:"background 0.2s",flexShrink:0}}><div style={{width:16,height:16,borderRadius:"50%",background:C.w,position:"absolute",top:3,left:v?20:3,transition:"left 0.2s"}}/></div>
+        </div>)}
+        <Inp label="Email pour les notifications" value={notif.emailAddr} onChange={e=>setNotif(p=>({...p,emailAddr:e.target.value}))} placeholder="votre@email.com" type="email"/>
+      </div>
+      <div style={{marginTop:12}}><Btn onClick={saveNotif} v="gold">{saved?"✅ Sauvegardé !":"💾 Sauvegarder"}</Btn></div>
+    </Card>}
+    {tab==="securite"&&<Card style={{padding:18}}><div style={{fontSize:12,fontWeight:800,color:C.gold,marginBottom:12}}>🔐 Sécurité</div>
+      <div style={{background:`${C.gold}08`,border:`1px solid ${C.gold}22`,borderRadius:10,padding:"13px 14px",marginBottom:12}}>
+        <div style={{fontWeight:700,fontSize:11,color:C.w,marginBottom:4}}>🔑 Mot de passe Système Mère</div>
+        <div style={{fontSize:9,color:C.gray,marginBottom:10}}>Actuel : <span style={{color:C.gold,fontWeight:700}}>{cfg.password}</span></div>
+        <ChgPass actuel={cfg.password} onSave={async np=>{await saveCfg({...cfg,password:np});}} onClose={()=>{}}/>
+      </div>
+      <div style={{background:`${C.err}08`,border:`1px solid ${C.err}22`,borderRadius:9,padding:"11px 13px"}}>
+        <div style={{fontSize:10,fontWeight:700,color:C.err,marginBottom:6}}>⚠ Conseils de Sécurité</div>
+        {["Changez votre mot de passe régulièrement","Ne partagez jamais votre mot de passe mère","Donnez à chaque église un code unique","Exportez régulièrement vos données"].map(c=><div key={c} style={{fontSize:9,color:C.gray,padding:"2px 0"}}>• {c}</div>)}
+      </div>
+    </Card>}
+    {tab==="systeme"&&<div style={{display:"grid",gap:12}}>
+      <Card style={{padding:18}}><div style={{fontSize:12,fontWeight:800,color:C.gold,marginBottom:12}}>🛠 Outils Système</div>
+        <div style={{display:"grid",gap:10}}>
+          <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}22`,borderRadius:10,padding:"12px 14px"}}>
+            <div style={{fontWeight:700,fontSize:11,color:C.gL2,marginBottom:5}}>📊 Exportation globale</div>
+            <div style={{fontSize:9,color:C.gray,marginBottom:8}}>Exportez toutes les données en un fichier JSON de sauvegarde.</div>
+            <Btn onClick={()=>{const blob=new Blob([JSON.stringify({master:cfg,eglises:allData},null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="salem_backup_"+new Date().toLocaleDateString("fr-FR").replace(/\//g,"-")+".json";a.click();URL.revokeObjectURL(url);}} v="blue">📤 Exporter tout</Btn>
+          </div>
+          <div style={{background:`${C.ok}08`,border:`1px solid ${C.ok}22`,borderRadius:10,padding:"12px 14px"}}>
+            <div style={{fontWeight:700,fontSize:11,color:C.ok,marginBottom:5}}>🔄 Synchronisation</div>
+            <div style={{fontSize:9,color:C.gray,marginBottom:8}}>Forcer la synchronisation avec le cloud Firebase.</div>
+            <Btn onClick={()=>window.location.reload()} v="green">🔄 Synchroniser maintenant</Btn>
+          </div>
+          <div style={{background:`${C.err}08`,border:`1px solid ${C.err}22`,borderRadius:10,padding:"12px 14px"}}>
+            <div style={{fontWeight:700,fontSize:11,color:C.err,marginBottom:5}}>⚠ Vider le cache local</div>
+            <div style={{fontSize:9,color:C.gray,marginBottom:8}}>Les données du cloud restent intactes.</div>
+            <Btn onClick={()=>{if(!window.confirm("Vider le cache local ? Les données cloud restent intactes."))return;Object.keys(localStorage).filter(k=>k.startsWith("eg_")||k==="m_cfg").forEach(k=>localStorage.removeItem(k));window.location.reload();}} v="danger">🗑 Vider le cache</Btn>
+          </div>
+          <div style={{background:`${C.gold}08`,border:`1px solid ${C.gold}22`,borderRadius:10,padding:"12px 14px"}}>
+            <div style={{fontWeight:700,fontSize:11,color:C.w,marginBottom:5}}>📋 Rapport de diagnostic</div>
+            <div style={{fontSize:9,color:C.gray,marginBottom:8}}>Informations techniques pour le support.</div>
+            <Btn onClick={()=>{const info=`RAPPORT — Les Églises Salem v${VER}\nDate: ${new Date().toLocaleString("fr-FR")}\nNavigateur: ${navigator.userAgent}\nConnexion: ${navigator.onLine?"En ligne":"Hors ligne"}\nÉglises: ${cfg.eglises.length}\nTotal membres: ${allData.reduce((s,d)=>s+(d?.membres?.length||0),0)}\nURL: ${window.location.href}`;navigator.clipboard?.writeText(info);alert("✅ Rapport copié !\n\n"+info);}} v="gold">📋 Générer rapport</Btn>
+          </div>
+        </div>
+      </Card>
+    </div>}
+  </div>;
+}
+
+function FormulaireEglise({form,setField,upPhoto,genPass,removePhoto}){
+  return <div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
+      <div style={{gridColumn:"span 2"}}>
+        <div style={{marginBottom:12}}><label style={lS}>NOM DE L'ÉGLISE *</label>
+        <input type="text" name="nom" value={form.nom||""} onChange={setField} placeholder="ex: Église de Dieu Salem Delmas" style={iS} autoComplete="off"/></div>
+      </div>
+      <div style={{marginBottom:12}}><label style={lS}>VILLE / QUARTIER</label>
+      <input type="text" name="ville" value={form.ville||""} onChange={setField} style={iS} autoComplete="off"/></div>
+      <div style={{marginBottom:12}}><label style={lS}>ADRESSE</label>
+      <input type="text" name="adresse" value={form.adresse||""} onChange={setField} style={iS} autoComplete="off"/></div>
+      <div style={{marginBottom:12}}><label style={lS}>NOM DU RESPONSABLE</label>
+      <input type="text" name="responsable" value={form.responsable||""} onChange={setField} style={iS} autoComplete="off"/></div>
+      <div style={{marginBottom:12}}><label style={lS}>CONTACT DU RESPONSABLE</label>
+      <input type="text" name="contact" value={form.contact||""} onChange={setField} style={iS} autoComplete="off"/></div>
+      <div style={{marginBottom:12}}><label style={lS}>TÉLÉPHONE</label>
+      <input type="text" name="telephone" value={form.telephone||""} onChange={setField} style={iS} autoComplete="off"/></div>
+      <div style={{marginBottom:12}}><label style={lS}>EMAIL</label>
+      <input type="email" name="email" value={form.email||""} onChange={setField} style={iS} autoComplete="off"/></div>
+    </div>
+    <div style={{marginBottom:12}}>
+      <label style={lS}>PHOTO DE L'ÉGLISE</label>
+      <div style={{display:"flex",gap:9,alignItems:"center"}}>
+        {form.photo
+          ?<img src={form.photo} alt="" style={{width:54,height:54,borderRadius:9,objectFit:"cover",border:`2px solid ${C.gold}44`}}/>
+          :<div style={{width:54,height:54,borderRadius:9,background:C.bg3,border:`1px dashed ${C.gold}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,color:C.gray}}>📷</div>
+        }
+        <label style={{display:"inline-block",padding:"6px 12px",background:`${C.blue}18`,border:`1px solid ${C.blue}44`,borderRadius:8,color:C.blue,fontWeight:700,fontSize:10,cursor:"pointer"}}>
+          📷 Choisir une photo
+          <input type="file" accept="image/*" onChange={upPhoto} style={{display:"none"}}/>
+        </label>
+        {form.photo&&<button onClick={removePhoto} style={{padding:"4px 9px",background:`${C.err}14`,border:`1px solid ${C.err}44`,borderRadius:6,color:C.err,cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"inherit"}}>✕</button>}
+      </div>
+    </div>
+    <div style={{borderTop:`1px solid ${C.gold}22`,margin:"8px 0 12px",paddingTop:12}}>
+      <div style={{fontSize:9,color:C.gold,fontWeight:700,letterSpacing:1,marginBottom:8}}>🔐 CODE D'ACCÈS POUR LE RESPONSABLE</div>
+      <div style={{display:"flex",gap:7,alignItems:"flex-end"}}>
+        <div style={{flex:1}}>
+          <div style={{marginBottom:12}}><label style={lS}>CODE D'ACCÈS</label>
+          <input type="text" name="password" value={form.password||""} onChange={setField} style={iS} autoComplete="off"/></div>
+        </div>
+        <button onClick={genPass} style={{padding:"8px 12px",borderRadius:8,background:"transparent",border:`1px solid ${C.gray}55`,color:C.gray,cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",marginBottom:12}}>🔄 Générer</button>
+      </div>
+      <div style={{fontSize:9,color:C.gray,marginTop:-8}}>Ce code sera donné au responsable pour accéder au système de son église.</div>
+    </div>
+  </div>;
+}
+
+
+function GestionEglises({cfg,saveCfg,openLien}){
+  const[modal,setModal]=useState(false);
+  const[editEg,setEditEg]=useState(null);
+  const[form,setF]=useState({});
+  const[lienAuto,setLienAuto]=useState(null);
+
+  const setField=useCallback(e=>setF(p=>({...p,[e.target.name]:e.target.value})),[]);
+  const upPhoto=useCallback(e=>{
+    const file=e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=ev=>setF(p=>({...p,photo:ev.target.result}));
+    r.readAsDataURL(file);
+  },[]);
+  const genPass=useCallback(()=>setF(p=>({...p,password:genPw()})),[]);
+  const removePhoto=useCallback(()=>setF(p=>({...p,photo:""})),[]);
+
+  const creer=async()=>{
+    if(!form.nom)return alert("Le nom est obligatoire.");
+    const id=uid();const pw=form.password||genPw();
+    const eg={id,nom:form.nom,ville:form.ville||"",responsable:form.responsable||"",
+      contact:form.contact||"",password:pw,dateCree:new Date().toLocaleDateString("fr-FR"),
+      adresse:form.adresse||"",telephone:form.telephone||"",email:form.email||"",photo:form.photo||""};
+    await saveCfg({...cfg,eglises:[...cfg.eglises,eg]});
+    await fSet("eglises/"+id+"/data",egVide(form.nom));
+    setModal(false);setF({});setLienAuto(eg);
+  };
+  const modifier=async()=>{
+    await saveCfg({...cfg,eglises:cfg.eglises.map(e=>e.id===editEg.id?{...e,...form}:e)});
+    setEditEg(null);setF({});
+  };
+  const suppr=async id=>{
+    if(!window.confirm("Supprimer cette église et toutes ses données ?"))return;
+    await saveCfg({...cfg,eglises:cfg.eglises.filter(e=>e.id!==id)});
+    await fDel("eglises/"+id);
+  };
+
+  return <div>
+    {lienAuto&&<ModalLien eg={lienAuto} onClose={()=>setLienAuto(null)}/>}
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+      <SH>Gestion des Églises</SH>
+      <Btn onClick={()=>{setF({password:genPw()});setModal(true);}}>+ Enregistrer une église</Btn>
+    </div>
+    {cfg.eglises.length===0&&<Card style={{padding:32,textAlign:"center"}}>
+      <div style={{fontSize:38,marginBottom:10}}>⛪</div>
+      <div style={{color:C.gray,marginBottom:14,fontSize:11}}>Aucune église enregistrée</div>
+      <Btn onClick={()=>{setF({password:genPw()});setModal(true);}}>Enregistrer la première église</Btn>
+    </Card>}
+    <div style={{display:"grid",gap:10}}>
+      {cfg.eglises.map(eg=>(
+        <Card key={eg.id} style={{padding:"14px 18px"}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+            {eg.photo
+              ?<img src={eg.photo} alt="" style={{width:46,height:46,borderRadius:9,objectFit:"cover",border:`2px solid ${C.gold}44`,flexShrink:0}}/>
+              :<div style={{width:46,height:46,borderRadius:9,background:`linear-gradient(135deg,${C.gD},${C.gold})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0}}>⛪</div>
+            }
+            <div style={{flex:1,minWidth:140}}>
+              <div style={{fontWeight:800,fontSize:13,color:C.gold}}>{eg.nom}</div>
+              <div style={{fontSize:9,color:C.gray,marginTop:2}}>{eg.ville} {eg.responsable?"· "+eg.responsable:""} · {eg.dateCree}</div>
+              <div style={{marginTop:5,display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                <span style={{fontSize:8,color:C.gray}}>Code :</span>
+                <span style={{fontSize:12,color:C.gold,fontWeight:800,background:`${C.gold}14`,padding:"1px 10px",borderRadius:20,letterSpacing:2}}>{eg.password}</span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+              <Btn onClick={()=>openLien(eg)} v="gold" sm>🔗 Lien & Code</Btn>
+              <button onClick={()=>{setEditEg(eg);setF({...eg});}} style={{padding:"4px 8px",background:`${C.gold}14`,border:`1px solid ${C.gold}44`,borderRadius:6,color:C.gold,cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>✏</button>
+              <button onClick={()=>suppr(eg.id)} style={{padding:"4px 8px",background:`${C.err}14`,border:`1px solid ${C.err}44`,borderRadius:6,color:C.err,cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit"}}>🗑</button>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+    {modal&&<Modl title="Enregistrer une Église" onClose={()=>setModal(false)} wide>
+      <FormulaireEglise form={form} setField={setField} upPhoto={upPhoto} genPass={genPass} removePhoto={removePhoto}/>
+      <div style={{display:"flex",gap:8,marginTop:4}}>
+        <Btn onClick={creer}>✓ ENREGISTRER & GÉNÉRER LE LIEN</Btn>
+        <Btn onClick={()=>setModal(false)} v="outline">ANNULER</Btn>
+      </div>
+    </Modl>}
+    {editEg&&<Modl title="Modifier l'Église" sub={editEg.nom} onClose={()=>setEditEg(null)} wide>
+      <FormulaireEglise form={form} setField={setField} upPhoto={upPhoto} genPass={genPass} removePhoto={removePhoto}/>
+      <div style={{display:"flex",gap:8,marginTop:4}}>
+        <Btn onClick={modifier}>✓ ENREGISTRER</Btn>
+        <Btn onClick={()=>setEditEg(null)} v="outline">ANNULER</Btn>
+      </div>
+    </Modl>}
+  </div>;
+}
+
+
+function DashMere({cfg,allData,online,onVoir,onCP,openLien}){
+  const totM=allData.reduce((s,d)=>s+(d?.membres?.length||0),0);const totC=allData.reduce((s,d)=>s+(d?.conversions?.length||0),0);const totE=allData.reduce((s,d)=>{const{e}=finTot(d);return s+e;},0);const totD=allData.reduce((s,d)=>{const{d:dep}=finTot(d);return s+dep;},0);
+  const imp=()=>{const h=`<table><tr><th>Indicateur</th><th>Valeur</th></tr><tr><td>Nombre d'églises</td><td>${cfg.eglises.length}</td></tr><tr><td>Total membres</td><td>${totM}</td></tr><tr><td>Total conversions</td><td>${totC}</td></tr><tr><td>Total entrées</td><td>${gH(totE)}</td></tr><tr><td>Total dépenses</td><td>${gH(totD)}</td></tr><tr><td>Solde global</td><td>${gH(totE-totD)}</td></tr></table><h2>Par Église</h2><table><tr><th>Église</th><th>Membres</th><th>Entrées</th><th>Solde</th></tr>${cfg.eglises.map((eg,i)=>{const{e,d}=finTot(allData[i]);return`<tr><td>${eg.nom}</td><td>${allData[i]?.membres?.length||0}</td><td>${gH(e)}</td><td>${gH(e-d)}</td></tr>`;}).join("")}</table>`;imprimer("Tableau de Bord Global",h,"Les Églises Salem");};
+  return<div>
+    <div style={{background:`linear-gradient(135deg,${C.bg3},${C.bg4})`,border:`1px solid ${C.gold}33`,borderRadius:14,padding:"15px 19px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+      <div style={{flex:1}}><div style={{fontSize:8,color:C.gray,letterSpacing:3,marginBottom:3}}>✝ PASTEUR RESPONSABLE</div><div style={{fontSize:16,fontWeight:800,color:C.gold,letterSpacing:2}}>Les Églises Salem</div><div style={{fontSize:8,color:C.gray,fontStyle:"italic",marginTop:3}}>{VERSET}</div><div style={{fontSize:7,color:C.gray,marginTop:2}}>v{VER}</div></div>
+      <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}><CB online={online}/><div style={{display:"flex",gap:6}}><BP onClick={imp}/><Btn onClick={onCP} v="outline" sm>🔑 Mot de passe</Btn></div></div>
+    </div>
+    <div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:12}}><SB label="Églises" value={cfg.eglises.length} icon="⛪"/><SB label="Membres" value={totM} icon="👥" color={C.blue}/><SB label="Conversions" value={totC} icon="🙏" color={C.ok}/><SB label="Entrées" value={gH(totE)} icon="📈" color={C.ok}/><SB label="Dépenses" value={gH(totD)} icon="📉" color={C.err}/><SB label="Solde" value={gH(totE-totD)} icon="💰"/></div>
+    <h3 style={{fontSize:11,fontWeight:800,color:C.gold,marginBottom:10,letterSpacing:1}}>Toutes les Églises — Temps réel ☁</h3>
+    {cfg.eglises.length===0&&<Card style={{padding:32,textAlign:"center"}}><div style={{fontSize:34,marginBottom:8}}>⛪</div><div style={{color:C.gray,fontSize:11}}>Allez dans "Gestion des Églises" pour commencer.</div></Card>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(258px,1fr))",gap:10}}>
+      {cfg.eglises.map((eg,i)=>{const d=allData[i];const m=d?.membres?.length||0;const{e,d:dep}=finTot(d);return<Card key={eg.id} style={{overflow:"hidden"}}>
+        <div style={{background:`${C.gold}10`,borderBottom:`1px solid ${C.gold}22`,padding:"11px 14px",display:"flex",alignItems:"center",gap:9}}>
+          {eg.photo?<img src={eg.photo} alt="" style={{width:36,height:36,borderRadius:8,objectFit:"cover",border:`2px solid ${C.gold}44`,flexShrink:0}}/>:<div style={{width:36,height:36,borderRadius:8,background:`linear-gradient(135deg,${C.gD},${C.gold})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>⛪</div>}
+          <div style={{flex:1,minWidth:0}}><div style={{fontWeight:800,fontSize:11,color:C.gold,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{eg.nom}</div><div style={{fontSize:8,color:C.gray}}>{eg.ville} {eg.responsable?"· "+eg.responsable:""}</div></div>
+          <div style={{width:6,height:6,borderRadius:"50%",background:d?C.ok:C.gray,flexShrink:0}}/>
+        </div>
+        <div style={{padding:"9px 14px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,borderBottom:`1px solid ${C.gold}11`}}>
+          {[["👥",m,"Membres"],["📈",gH(e),"Entrées"],["💰",gH(e-dep),"Solde"]].map(([ic,v,l])=><div key={l} style={{textAlign:"center"}}><div style={{fontSize:12}}>{ic}</div><div style={{fontSize:10,fontWeight:800,color:C.gold}}>{v}</div><div style={{fontSize:7,color:C.gray}}>{l}</div></div>)}
+        </div>
+        <div style={{padding:"9px 14px",display:"flex",gap:5,flexWrap:"wrap"}}><Btn onClick={()=>onVoir(eg)} v="gold" sm>📊 Voir système</Btn><Btn onClick={()=>openLien(eg)} v="blue" sm>🔗 Lien</Btn></div>
+      </Card>;})}
+    </div>
+  </div>;
+}
+
+function RapportGlobal({cfg,allData}){
+  const imp=()=>{const h=cfg.eglises.map((eg,i)=>{const d=allData[i]||egVide(eg.nom);const m=d.membres||[];const{e,d:dep}=finTot(d);return`<h2>⛪ ${eg.nom}</h2><p>${eg.ville||""} ${eg.responsable?"· "+eg.responsable:""}</p><table><tr><th>Indicateur</th><th>Valeur</th></tr><tr><td>Membres</td><td>${m.length}</td></tr><tr><td>Baptisés</td><td>${m.filter(x=>x.type==="baptise").length}</td></tr><tr><td>Conversions</td><td>${d.conversions?.length||0}</td></tr><tr><td>Entrées</td><td>${gH(e)}</td></tr><tr><td>Dépenses</td><td>${gH(dep)}</td></tr><tr><td>Solde</td><td>${gH(e-dep)}</td></tr></table>`;}).join("");imprimer("Rapport Global",h,"Les Églises Salem");};
+  return<div>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}><SH>Rapport Global</SH><BP onClick={imp}/></div>
+    {cfg.eglises.length===0&&<Card style={{padding:32,textAlign:"center"}}><div style={{color:C.gray,fontSize:11}}>Aucune église</div></Card>}
+    <div style={{display:"grid",gap:10}}>
+      {cfg.eglises.map((eg,i)=>{const d=allData[i]||egVide(eg.nom);const m=d.membres||[];const{e,d:dep}=finTot(d);return<Card key={eg.id} style={{padding:"14px 18px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:11,borderBottom:`1px solid ${C.gold}18`,paddingBottom:9}}>
+          {eg.photo?<img src={eg.photo} alt="" style={{width:32,height:32,borderRadius:7,objectFit:"cover"}}/>:<div style={{fontSize:17}}>⛪</div>}
+          <div><div style={{fontWeight:800,fontSize:12,color:C.gold}}>{eg.nom}</div><div style={{fontSize:8,color:C.gray}}>{eg.ville} {eg.responsable?"· "+eg.responsable:""}</div></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(88px,1fr))",gap:7}}>
+          {[["👥","Membres",m.length],["✝","Baptisés",m.filter(x=>x.type==="baptise").length],["◌","Non baptisés",m.filter(x=>x.type==="non-baptise").length],["🙏","Conversions",d.conversions?.length||0],["🎵","Ministères",d.ministeres?.length||0],["⬡","Groupes",d.groupes?.length||0],["🕊","Diacres",d.diacres?.length||0],["📖","Pasteurs",d.pasteurs?.length||0],["🤍","Veuves/Veufs",d.veuves?.length||0],["📈","Entrées",gH(e)],["📉","Dépenses",gH(dep)],["💰","Solde",gH(e-dep)]].map(([ic,l,v])=><div key={l} style={{background:`${C.gold}08`,border:`1px solid ${C.gold}16`,borderRadius:8,padding:"7px",textAlign:"center"}}><div style={{fontSize:12,marginBottom:2}}>{ic}</div><div style={{fontSize:9,fontWeight:800,color:C.gold}}>{v}</div><div style={{fontSize:7,color:C.gray}}>{l}</div></div>)}
+        </div>
+      </Card>;})}
+    </div>
+  </div>;
+}
+
+function CarteHaiti({cfg}){
+  return<div><SH>🗺 Carte — Localisation des Églises</SH>
+    {cfg.eglises.filter(eg=>eg.localisation?.coordonnees).length===0?<Card style={{padding:32,textAlign:"center"}}><div style={{fontSize:36,marginBottom:9}}>🗺</div><div style={{color:C.gray,fontSize:11}}>Aucune église n'a encore renseigné sa localisation GPS.<br/>Les responsables peuvent le faire dans "Localisation GPS" de leur système.</div></Card>
+    :<div style={{display:"grid",gap:9}}>{cfg.eglises.map(eg=>{const has=!!eg.localisation?.coordonnees;return<Card key={eg.id} style={{padding:"12px 16px"}}><div style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}>
+      {eg.photo?<img src={eg.photo} alt="" style={{width:32,height:32,borderRadius:7,objectFit:"cover",flexShrink:0}}/>:<div style={{fontSize:17,flexShrink:0}}>⛪</div>}
+      <div style={{flex:1,minWidth:120}}><div style={{fontWeight:700,fontSize:11,color:C.gold}}>{eg.nom}</div><div style={{fontSize:8,color:C.gray}}>{eg.ville||"—"} · {eg.responsable||""}</div>{has?<div style={{fontSize:8,color:C.ok,marginTop:2}}>📍 {eg.localisation.coordonnees}</div>:<div style={{fontSize:8,color:C.gray,marginTop:2}}>⚠ Localisation non renseignée</div>}</div>
+      {has&&<button onClick={()=>window.open(`https://www.google.com/maps?q=${encodeURIComponent(eg.localisation.coordonnees)}`,"_blank")} style={{padding:"5px 10px",background:`${C.blue}18`,border:`1px solid ${C.blue}44`,borderRadius:7,color:C.blue,cursor:"pointer",fontSize:9,fontWeight:700,fontFamily:"inherit"}}>🗺 Voir sur Maps</button>}
+    </div></Card>;})}</div>}
+  </div>;
+}
+
+const NAV_M=[{id:"dashboard",l:"Tableau de Bord",ic:"◈"},{id:"eglises",l:"Gestion des Églises",ic:"⛪"},{id:"rapport",l:"Rapport Global",ic:"📊"},{id:"carte",l:"Carte — Haïti",ic:"🗺"},{id:"parametres",l:"Paramètres",ic:"⚙"}];
+
+function AppMere(){
+  const{cfg,saveCfg,online}=useMaster();
+  const[page,setPage]=useState("dashboard");const[egVue,setEgVue]=useState(null);const[cp,setCp]=useState(false);const[lienM,setLienM]=useState(null);const[mob,setMob]=useState(window.innerWidth<700);const[menu,setMenu]=useState(false);const[allData,setAllData]=useState([]);
+  useEffect(()=>{const h=()=>setMob(window.innerWidth<700);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
+  useEffect(()=>{if(!cfg)return;const us=cfg.eglises.map((eg,i)=>fSub("eglises/"+eg.id+"/data",v=>{setAllData(p=>{const n=[...p];n[i]=v||egVide(eg.nom);return n;});}));return()=>us.forEach(u=>u());},[cfg?.eglises?.length]);
+  if(!cfg)return<Splash/>;
+  const goTo=id=>{setPage(id);setEgVue(null);if(mob)setMenu(false);};
+  return<div style={{display:"flex",height:"100vh",background:C.bg,fontFamily:"Georgia,'Times New Roman',serif",color:C.w,overflow:"hidden"}}>
+    {mob&&menu&&<div onClick={()=>setMenu(false)} style={{position:"fixed",inset:0,zIndex:150,background:"rgba(0,0,0,.75)"}}/>}
+    <div style={{width:mob?(menu?232:0):215,flexShrink:0,transition:"width .25s",background:`linear-gradient(180deg,${C.bg2},#050C14)`,borderRight:`1px solid ${C.gold}22`,display:"flex",flexDirection:"column",overflow:"hidden",position:mob?"fixed":"relative",height:"100%",zIndex:160}}>
+      <div style={{padding:"18px 12px 10px",borderBottom:`1px solid ${C.gold}22`,textAlign:"center"}}>
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{marginBottom:4}}><rect x="8.5" y="2" width="5" height="18" rx="2.5" fill={C.gold}/><rect x="2" y="8.5" width="18" height="5" rx="2.5" fill={C.gold}/></svg>
+        <div style={{fontSize:8,color:C.gray,letterSpacing:2.5,marginBottom:2}}>LES ÉGLISES DE DIEU</div>
+        <div style={{fontSize:12,fontWeight:800,color:C.gold,letterSpacing:2,marginBottom:4}}>SALEM</div>
+        <div style={{fontSize:7,color:C.gD,background:`${C.gold}18`,borderRadius:20,padding:"2px 8px",display:"inline-block",letterSpacing:1,marginBottom:6}}>SYSTÈME MÈRE · v{VER}</div>
+        <div><CB online={online}/></div>
+      </div>
+      <nav style={{flex:1,overflowY:"auto",padding:"5px 4px"}}>
+        {NAV_M.map(n=><button key={n.id} onClick={()=>goTo(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 8px",marginBottom:1,background:page===n.id&&!egVue?`${C.gold}18`:"transparent",border:page===n.id&&!egVue?`1px solid ${C.gold}44`:"1px solid transparent",borderRadius:7,color:page===n.id&&!egVue?C.gold:C.gray,cursor:"pointer",fontSize:11,fontWeight:page===n.id&&!egVue?700:400,fontFamily:"inherit",textAlign:"left"}}><span style={{fontSize:11,flexShrink:0}}>{n.ic}</span><span>{n.l}</span></button>)}
+        {cfg.eglises.length>0&&<><div style={{padding:"7px 8px 3px",fontSize:7,color:C.gD,letterSpacing:1.5,fontWeight:700}}>ACCÈS DIRECT</div>
+        {cfg.eglises.map(eg=><button key={eg.id} onClick={()=>{setEgVue(eg);if(mob)setMenu(false);}} style={{width:"100%",display:"flex",alignItems:"center",gap:6,padding:"5px 8px",marginBottom:1,background:egVue?.id===eg.id?`${C.blue}18`:"transparent",border:egVue?.id===eg.id?`1px solid ${C.blue}44`:"1px solid transparent",borderRadius:7,color:egVue?.id===eg.id?C.blue:C.gray,cursor:"pointer",fontSize:10,fontWeight:egVue?.id===eg.id?700:400,fontFamily:"inherit",textAlign:"left"}}>
+          {eg.photo?<img src={eg.photo} alt="" style={{width:15,height:15,borderRadius:3,objectFit:"cover",flexShrink:0}}/>:<span style={{flexShrink:0,fontSize:10}}>⛪</span>}
+          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{eg.nom}</span>
+        </button>)}</>}
+      </nav>
+      <div style={{padding:"4px 4px",borderTop:`1px solid ${C.gold}11`}}>
+        <button onClick={()=>setCp(true)} style={{width:"100%",padding:"5px 8px",marginBottom:3,borderRadius:7,background:"transparent",border:`1px solid ${C.gold}33`,color:C.gold,cursor:"pointer",fontSize:8,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>🔑 Changer mot de passe</button>
+        <button onClick={()=>window.location.reload()} style={{width:"100%",padding:"6px",borderRadius:7,background:"transparent",border:`1px solid ${C.err}44`,color:C.err,cursor:"pointer",fontSize:8,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>🚪 Se déconnecter</button>
+      </div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}}>
+      {mob&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 11px",borderBottom:`1px solid ${C.gold}22`,background:C.bg2,flexShrink:0}}><button onClick={()=>setMenu(o=>!o)} style={{background:"transparent",border:"none",color:C.gold,fontSize:17,cursor:"pointer"}}>☰</button><div style={{fontSize:10,fontWeight:800,color:C.gold,flex:1}}>Les Églises Salem — Système Mère</div><CB online={online}/></div>}
+      <div style={{flex:1,padding:mob?"10px":"18px",overflowY:"auto"}}>
+        {egVue?<SystEglise egId={egVue.id} egNom={egVue.nom} onBack={()=>setEgVue(null)} showCP={false}/>
+        :page==="dashboard"?<DashMere cfg={cfg} allData={allData} online={online} onVoir={eg=>setEgVue(eg)} onCP={()=>setCp(true)} openLien={setLienM}/>
+        :page==="eglises"?<GestionEglises cfg={cfg} saveCfg={saveCfg} openLien={setLienM}/>
+        :page==="rapport"?<RapportGlobal cfg={cfg} allData={allData}/>
+        :page==="carte"?<CarteHaiti cfg={cfg}/>
+        :page==="parametres"?<Parametres cfg={cfg} saveCfg={saveCfg} setLienModal={setLienM} allData={allData}/>
+        :null}
+      </div>
+    </div>
+    {lienM&&<ModalLien eg={lienM} onClose={()=>setLienM(null)}/>}
+    {cp&&<ChgPass actuel={cfg.password} onSave={async np=>{await saveCfg({...cfg,password:np});}} onClose={()=>setCp(false)}/>}
+  </div>;
+}
+
+function AppRoot(){
+  const[fbOk,setFbOk]=useState(!!window.__FB);const[mode,setMode]=useState(null);const[egCfg,setEgCfg]=useState(null);const[masterPw,setMasterPw]=useState(MPW);const[loading,setLoading]=useState(false);
+  useEffect(()=>{if(fbOk)return;const h=()=>setFbOk(true);window.addEventListener("fb-ok",h);return()=>window.removeEventListener("fb-ok",h);},[fbOk]);
+  useEffect(()=>{if(!fbOk)return;const params=new URLSearchParams(window.location.search);const egId=params.get("eglise");if(egId){setLoading(true);fGet("master").then(md=>{setMasterPw(md?.password||MPW);const eg=md?.eglises?.find(e=>e.id===egId);if(eg)setEgCfg(eg);setLoading(false);});}else{fGet("master/password").then(pw=>{if(pw)setMasterPw(pw);});}},[fbOk]);
+  if(!fbOk||loading)return<Splash/>;
+  if(egCfg){if(mode==="eglise")return<SystEglise egId={egCfg.id} egNom={egCfg.nom} onBack={()=>setMode(null)} showCP={true}/>;return<Login egCfg={egCfg} masterPw={null} onEglise={()=>setMode("eglise")} onMaster={null}/>;}
+  if(mode==="master")return<AppMere/>;
+  return<Login masterPw={masterPw} egCfg={null} onMaster={()=>setMode("master")} onEglise={null}/>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<AppRoot/>);
+</script>
+</body>
+</html>
